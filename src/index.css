@@ -1,0 +1,15 @@
+/* global reset + import tokens once */
+@import "./styles/tokens.css";
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--text-color);
+  font: var(--text-body-size)/1.45 var(--font-family);
+}
+button, input, select { font: inherit; }
+/* Prevent any global rule from making every <svg> huge and filled */
+svg { width: auto; height: auto; }
+svg:not([fill]) { fill: none; }

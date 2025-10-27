@@ -1,0 +1,193 @@
+@import url("https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&display=swap");
+
+:root{
+  --pf-bg:#f7f7fb;
+  --pf-card:#fff;
+  --pf-text:#262626;
+  --pf-muted:#6b7280;
+  --pf-border:#E0E3EA;
+  --pf-purple:#5D38DF;
+  --pf-purple-200:#EAE5FF;
+}
+
+*{ box-sizing:border-box; }
+
+.pf-root{
+  min-height:100vh;
+  background:var(--pf-bg);
+  font-family:"Lato", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+  color:var(--pf-text);
+}
+
+/* Top title bar */
+.pf-topbar{
+  height:64px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
+  border-bottom:1px solid #e5e7eb;
+}
+.pf-top-title{
+  margin:0;
+  font-size:20px;          /* Title 2 in Figma */
+  font-weight:600;
+  color:#262626;
+}
+
+/* Content area */
+.pf-main{
+  max-width:960px; /* matches the 916px + padding feel */
+  margin:24px auto 40px;
+  padding:0 16px;
+}
+
+/* Form card */
+.pf-card{
+  background:var(--pf-card);
+  border:1px solid var(--pf-border);
+  border-radius:12px;
+  box-shadow:0 12px 28px rgba(0,0,0,0.06);
+  overflow:hidden;
+}
+.pf-cap{
+  height:8px;
+  background:var(--pf-purple);
+}
+.pf-card-inner{
+  padding:24px 32px 28px;
+}
+.pf-form-name{
+  margin:0 0 6px;
+  font-size:16px;
+  font-weight:700;
+  color:#262626;
+}
+.pf-form-desc{
+  margin:0 0 20px;
+  font-size:12px;
+  color:var(--pf-muted);
+}
+
+/* Questions */
+.pf-qs{ display:flex; flex-direction:column; gap:24px; }
+
+.pf-q{
+  display:flex;
+  gap:12px;
+}
+.pf-qnum{
+  width:24px;
+  height:24px;
+  flex:0 0 24px;
+  border-radius:50%;
+  background:var(--pf-purple-200);
+  color:var(--pf-purple);
+  font-weight:700;
+  font-size:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-top:2px;
+}
+.pf-qbody{ flex:1; }
+
+.pf-qtitle{
+  font-size:13px;
+  font-weight:600;
+  color:#2c2c2c;
+  margin-bottom:6px;
+}
+.pf-qtitle .req{ color:#a10000; margin-left:4px; }
+.pf-qdesc{
+  font-size:11px;
+  color:var(--pf-muted);
+  margin-bottom:8px;
+}
+
+/* Inputs */
+.pf-input{
+  width:100%;
+  border:1px solid var(--pf-border);
+  border-radius:8px;
+  padding:10px 12px;
+  font-size:13px;
+  background:#fff;
+  color:#111827;
+}
+.pf-input:disabled{ background:#fafafa; color:#6b7280; }
+.pf-textarea{ resize:vertical; min-height:84px; }
+
+.pf-date{
+  display:flex; align-items:center; gap:8px;
+}
+.pf-date .cal{ opacity:.65; }
+.pf-date input{
+  border: none;
+  outline: none;
+  background: transparent;
+  width:100%;
+  color:#111827;
+}
+
+.pf-select{ position:relative; padding:0; }
+.pf-select select{
+  appearance:none;
+  -webkit-appearance:none;
+  width:100%;
+  border:0;
+  background:transparent;
+  padding:10px 32px 10px 12px;
+  font-size:13px;
+  color:#111827;
+}
+.pf-select .chev{
+  position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  color:#6b7280;
+}
+
+/* Upload */
+.pf-upload{
+  border:1px dashed var(--pf-border);
+  border-radius:10px;
+  padding:22px 16px;
+  display:flex; align-items:center; gap:12px;
+  background:#fafbff;
+}
+.pf-upload-icon{ font-size:18px; }
+.pf-upload-text{ font-size:13px; color:#3b3b3b; }
+.pf-upload-text .link{ color:var(--pf-purple); font-weight:600; cursor:default; }
+.pf-upload-hint{ font-size:11px; color:var(--pf-muted); margin-top:6px; }
+
+/* Footer */
+.pf-footer{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:20px;
+}
+.pf-ghost{
+  background:#fff;
+  border:1px solid var(--pf-border);
+  border-radius:8px;
+  padding:8px 12px;
+  font-size:13px;
+  color:#374151;
+  cursor:pointer;
+}
+.pf-actions{ display:flex; gap:10px; }
+.pf-btn{
+  text-decoration:none;
+  background:#fff;
+  border:1px solid var(--pf-border);
+  border-radius:8px;
+  padding:10px 14px;
+  font-size:13px;
+  color:#374151;
+}
+.pf-primary{
+  background:var(--pf-purple);
+  border-color:var(--pf-purple);
+  color:#fff;
+  box-shadow:0 6px 16px rgba(93,56,223,.18);
+}

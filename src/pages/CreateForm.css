@@ -1,0 +1,178 @@
+/* ------- Page shell ------- */
+.cfp{max-width:1360px;margin:0 auto;padding:24px 40px 96px;color:#111827;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+.cfp-bc{display:flex;gap:6px;color:#6b7280;font-size:13px;margin-bottom:8px}
+.cfp-bc .cur{color:#374151}.cfp-bc .sep{color:#9ca3af}
+.cfp-tabs{display:flex;gap:24px;border-bottom:1px solid #E5E7EB;margin-bottom:16px}
+.cfp-tabs .tab{padding:12px 0;border:0;background:transparent;color:#6B7280;cursor:pointer}
+.cfp-tabs .tab.active{color:#5D38DF;font-weight:600;position:relative}
+.cfp-tabs .tab.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:#5D38DF;border-radius:2px}
+
+/* ------- Builder layout ------- */
+.fb{display:flex;gap:24px}
+.fb-left{width:332px;min-width:284px;background:#fff;border:1px solid #F0F0F0;border-radius:16px;padding:16px;box-sizing:border-box}
+.pillrow{display:flex;gap:8px;margin-bottom:12px}
+.pill{height:32px;display:inline-flex;align-items:center;justify-content:center;padding:0 12px;border-radius:6px;font-size:12px;font-weight:600;border:1px solid transparent}
+.pill.primary{background:#5D38DF;color:#fff}
+.pill.gray{background:#F3F4F6;color:#374151;border-color:#E5E7EB}
+.tile{height:48px;border:1px solid #E5E7EB;border-radius:8px;background:#fff;display:flex;align-items:center;padding:0 12px;margin-bottom:10px;font-size:14px;color:#111827;cursor:grab}
+.tile:active{cursor:grabbing}
+
+.fb-canvas{flex:1;background:#F7F7F7;border:1px solid #E5E7EB;border-radius:16px;padding:24px;position:relative}
+.fb-canvas.is-over{box-shadow:inset 0 0 0 3px rgba(93,56,223,.08)}
+
+/* ------- Form Header card ------- */
+.fh-card{position:relative;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px 16px 12px 16px;margin-bottom:16px}
+.fh-card::before{content:"";position:absolute;left:0;right:0;top:-8px;height:8px;background:#5D38DF;border-top-left-radius:12px;border-top-right-radius:12px}
+.fh-tab{position:absolute;top:-24px;left:16px;height:24px;display:inline-flex;align-items:center;padding:0 10px;background:#5D38DF;color:#fff;border-radius:6px;font-size:12px;font-weight:700}
+.fh-input{width:100%;border:1px solid #E5E7EB;border-radius:8px;padding:10px 12px;font-size:14px;margin-bottom:8px;outline:none}
+.fh-input:focus{border-color:#5D38DF;box-shadow:0 0 0 3px rgba(93,56,223,.12)}
+
+/* Empty drop placeholder (hidden after first item because not rendered) */
+.drop-empty{height:160px;border:1px dashed #5D38DF;border-radius:12px;background:#F2EFFC;display:flex;align-items:center;justify-content:center;color:#6B7280;margin-bottom:16px}
+
+/* Section heading title */
+.sec-hd{color:#5D38DF;font-weight:600;font-size:12px;margin:8px 0}
+
+/* ------- Question card ------- */
+.q-card{background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px 16px 12px 16px;margin-bottom:16px;position:relative}
+.q-card::before{content:"";position:absolute;left:-4px;top:0;bottom:0;width:4px;background:#5D38DF;border-top-left-radius:12px;border-bottom-left-radius:12px}
+.q-handle{position:absolute;left:50%;transform:translateX(-50%);top:-18px;font-size:18px;color:#6B7280;user-select:none}
+.q-title,.q-desc,.q-preview{width:100%;border:1px solid #E5E7EB;border-radius:8px;padding:10px 12px;font-size:14px;outline:none}
+.q-title{border-color:#5D38DF}
+.q-title:focus,.q-desc:focus{border-color:#5D38DF;box-shadow:0 0 0 3px rgba(93,56,223,.12)}
+.q-desc{margin-top:8px}
+.q-preview{margin-top:8px;background:#F9FAFB;color:#6B7280}
+
+/* Actions row aligned to the RIGHT per Figma */
+.q-actions{display:flex;align-items:center;gap:12px;justify-content:flex-end;margin-top:12px}
+.icon-btn{border:1px solid #E5E7EB;background:#fff;border-radius:8px;padding:6px 8px;cursor:pointer}
+.icon-btn:hover{background:#F9FAFB}
+.icon-btn.danger{border-color:#FCA5A5}
+.icon-btn.danger:hover{background:#FEF2F2}
+
+/* Toggle switches (purple) */
+.toggle-label{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:#374151}
+.switch{appearance:none;width:40px;height:22px;border-radius:999px;background:#D1D5DB;position:relative;outline:none;cursor:pointer;vertical-align:middle}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .18s ease}
+.switch:checked{background:#5D38DF}
+.switch:checked::after{transform:translateX(18px)}
+
+/* Add Section row */
+.add-section{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:12px;color:#374151}
+.add-icon{font-weight:700}.info{color:#9CA3AF}
+
+/* ------- Sticky footer ------- */
+.cfp-footer{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #E5E7EB;padding:12px 40px;display:flex;align-items:center;justify-content:space-between}
+.preview{height:36px;padding:0 12px;border-radius:999px;border:1px solid #5D38DF;background:#fff;color:#5D38DF;font-weight:600;cursor:pointer}
+.eye{margin-right:8px}
+.ff-right{display:flex;gap:12px}
+.ghost{height:40px;padding:0 16px;border-radius:8px;border:1px solid #E5E7EB;background:#fff;font-weight:600;cursor:pointer}
+.primary{height:40px;padding:0 16px;border-radius:8px;border:1px solid #5D38DF;background:#5D38DF;color:#fff;font-weight:600;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,.16)}
+.primary:hover{filter:brightness(.96)}
+
+/* Responsive */
+@media (max-width:1200px){
+  .fb{flex-direction:column}
+  .fb-left{width:100%}
+}
+.tab:focus-visible{outline:2px solid #5D38DF; outline-offset:2px}
+
+/* ---------- Page shell + breadcrumbs + tabs ---------- */
+.cfp{max-width:1360px;margin:0 auto;padding:24px 40px 96px;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#111827}
+.cfp-bc{display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:13px;color:#6b7280}
+.cfp-bc .sep{color:#9ca3af}.cfp-bc .cur{color:#374151}
+.cfp-tabs{display:flex;gap:24px;border-bottom:1px solid #E5E7EB;margin-bottom:16px}
+.cfp-tabs .tab{position:relative;padding:12px 0;background:transparent;border:0;color:#6B7280;font-size:14px;cursor:pointer}
+.cfp-tabs .tab.active{color:#5D38DF;font-weight:600}
+.cfp-tabs .tab.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:#5D38DF;border-radius:2px}
+
+/* ---------- Form Configuration card ---------- */
+.cfg-card{background:#fff;border:1px solid #F0F0F0;border-radius:8px;padding:16px 16px 8px}
+.cfg-title{margin:0 0 12px 0;font-size:16px;font-weight:600;color:#111827}
+.cfg-field{position:relative;margin-bottom:16px}
+.cfg-label{display:block;font-size:13px;color:#374151;margin-bottom:6px}
+.req{color:#EF4444;margin-left:4px}
+
+/* Inputs matching Figma */
+.cfg-input,.cfg-textarea{width:100%;box-sizing:border-box;border:1px solid #D8D8D8;border-radius:8px;background:#fff;padding:10px 12px;font-size:14px;color:#111827;outline:none}
+.cfg-textarea{resize:vertical}
+.cfg-input:focus,.cfg-textarea:focus{border-color:#5D38DF;box-shadow:0 0 0 3px rgba(93,56,223,.12)}
+
+/* Counters pinned to the right, inside field */
+.cfg-count{position:absolute;right:12px;bottom:10px;font-size:12px;color:#9CA3AF;background:#fff;padding:0 4px}
+
+/* Visibility switch */
+.cfg-switch{display:inline-flex;align-items:center;gap:10px;margin-top:6px}
+.cfg-switch input{display:none}
+.cfg-switch span{width:42px;height:22px;border-radius:999px;background:#D1D5DB;display:inline-block;position:relative;cursor:pointer;transition:background .2s}
+.cfg-switch span::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s}
+.cfg-switch input:checked + span{background:#5D38DF}
+.cfg-switch input:checked + span::after{transform:translateX(20px)}
+.cfg-hint{margin:6px 0 0 0;font-size:12px;color:#6B7280}
+
+/* ---------- Layout area / palette ---------- */
+.fb{display:flex;gap:24px}
+.fb-left{width:332px;min-width:284px;background:#fff;border:1px solid #F0F0F0;border-radius:16px;padding:16px;box-sizing:border-box}
+.pillrow{display:flex;gap:8px;margin-bottom:12px}
+.pill{height:32px;display:inline-flex;align-items:center;justify-content:center;padding:0 12px;border-radius:6px;font-size:12px;font-weight:600;border:1px solid transparent}
+.pill.primary{background:#5D38DF;color:#fff}
+.pill.gray{background:#F3F4F6;color:#374151;border-color:#E5E7EB}
+.tile{height:48px;border:1px solid #E5E7EB;border-radius:8px;background:#fff;display:flex;align-items:center;padding:0 12px;margin-bottom:10px;font-size:14px;color:#111827;cursor:grab}
+.tile:active{cursor:grabbing}
+
+/* Canvas */
+.fb-canvas{flex:1;background:#F7F7F7;border-radius:16px;padding:24px;border:1px solid #E5E7EB}
+.fb-canvas.is-over{box-shadow:inset 0 0 0 3px rgba(93,56,223,.12)}
+
+/* Header card */
+.fh-card{position:relative;border-radius:12px;border:1px solid #E5E7EB;background:#fff;padding:16px 16px 12px;margin-bottom:16px}
+.fh-card::before{content:"";position:absolute;left:0;right:0;top:-8px;height:8px;background:#5D38DF;border-top-left-radius:12px;border-top-right-radius:12px}
+.fh-tab{position:absolute;top:-24px;left:16px;height:24px;display:inline-flex;align-items:center;padding:0 10px;background:#5D38DF;color:#fff;border-radius:6px;font-size:12px;font-weight:700}
+.fh-input{width:100%;box-sizing:border-box;border:1px solid #D8D8D8;border-radius:8px;background:#fff;padding:10px 12px;font-size:14px;color:#111827;outline:none;margin-bottom:12px}
+.fh-input:focus{border-color:#5D38DF;box-shadow:0 0 0 3px rgba(93,56,223,.12)}
+
+/* Empty drop prompt + section title */
+.drop-empty{margin:16px 0 12px 0;padding:24px;border-radius:12px;background:#F2EFFC;border:1px dashed #5D38DF;color:#6B7280;text-align:center}
+.sec-hd{font-size:12px;color:#5D38DF;font-weight:700;margin:12px 0}
+
+/* Question card */
+.q-card{position:relative;border-radius:12px;border:1px solid #E5E7EB;background:#fff;padding:16px;margin-bottom:16px}
+.q-handle{position:absolute;left:50%;transform:translateX(-50%);top:-16px;font-size:16px;color:#9CA3AF;user-select:none}
+.q-title,.q-desc,.q-preview{width:100%;box-sizing:border-box;border:1px solid #D8D8D8;border-radius:8px;background:#fff;padding:10px 12px;font-size:14px;color:#111827;outline:none}
+.q-title{margin-bottom:8px;border-top-color:#5D38DF}
+.q-desc{margin-bottom:8px}
+.q-preview{margin:8px 0 12px 0;opacity:.65}
+.q-title:focus,.q-desc:focus{border-color:#5D38DF;box-shadow:0 0 0 3px rgba(93,56,223,.12)}
+
+/* Actions aligned RIGHT exactly like Figma */
+.q-actions{display:flex;justify-content:flex-end}
+.q-actions-right{display:flex;align-items:center;gap:12px}
+.icon-btn{border:1px solid #E5E7EB;background:#fff;border-radius:6px;padding:4px 8px;cursor:pointer}
+.icon-btn.danger{color:#991B1B;background:#FEE2E2;border-color:#FECACA}
+.icon-btn.danger:hover{background:#FECACA}
+
+/* Small pill switches in actions */
+.toggle-label{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:#374151}
+.toggle-label .switch{appearance:none;width:36px;height:20px;border-radius:999px;background:#D1D5DB;position:relative;outline:none;cursor:pointer;transition:background .2s;border:none}
+.toggle-label .switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s}
+.toggle-label .switch:checked{background:#5D38DF}
+.toggle-label .switch:checked::after{transform:translateX(16px)}
+
+/* Add Section */
+.add-section{width:100%;display:flex;justify-content:center;align-items:center;gap:8px;padding:12px;border-radius:8px;background:#fff;border:1px solid #E5E7EB;color:#374151;margin-top:12px}
+.add-icon{font-weight:700}.info{color:#6B7280}
+
+/* Sticky footer */
+.cfp-footer{position:fixed;left:0;right:0;bottom:0;z-index:10;background:#fff;border-top:1px solid #E5E7EB;padding:12px 40px;display:flex;align-items:center;justify-content:space-between}
+.preview{height:36px;padding:0 12px;border-radius:999px;border:1px solid #5D38DF;background:#fff;color:#5D38DF;font-weight:600;cursor:pointer}
+.eye{margin-right:8px}
+.ff-right{display:flex;align-items:center;gap:12px}
+.ghost{height:40px;padding:0 16px;border-radius:8px;border:1px solid #E5E7EB;background:#fff;color:#111827;font-weight:600;cursor:pointer}
+.primary{height:40px;padding:0 16px;border-radius:8px;border:1px solid #5D38DF;background:#5D38DF;color:#fff;font-weight:600;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,.16)}
+.primary:hover{filter:brightness(.96)}
+
+/* Responsive */
+@media (max-width:1200px){
+  .fb{flex-direction:column}
+  .fb-left{width:100%}
+}
