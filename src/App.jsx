@@ -4,11 +4,11 @@ import React from "react";
 import AdminDashboard from "./pages/AdminDashboard";
 import CreateForm from "./pages/CreateForm";
 import PreviewForm from "./pages/PreviewForm";
-import ViewForm from "./pages/ViewForm";
 import Login from "./pages/Login";
 import LearnerForms from "./pages/LearnerForms";
 import MySubmissions from "./pages/MySubmissions";
-import MySubmissionDetail from "./pages/MySubmissionDetail"; // ⬅️ NEW
+import MySubmissionDetail from "./pages/MySubmissionDetail";
+import FormSubmissionPage from "./pages/FormSubmissionPage"; // ⬅️ NEW
 import { AuthService } from "./api/auth";
 
 function getRole() {
@@ -41,11 +41,12 @@ export default function App() {
         <Route path="login" element={<Login />} />
         <Route path="/create-form" element={<CreateForm />} />
         <Route path="/preview" element={<PreviewForm />} />
-        <Route path="/forms/:formKey" element={<ViewForm />} />
+        {/* When a learner clicks Start Submission, land here */}
+        <Route path="/forms/:formKey" element={<FormSubmissionPage />} /> {/* ⬅️ swapped */}
         {/* Learner */}
         <Route path="/learn" element={<LearnerForms />} />
         <Route path="/learn/my-submissions" element={<MySubmissions />} />
-        <Route path="/learn/submissions/:responseId" element={<MySubmissionDetail />} /> {/* ⬅️ NEW */}
+        <Route path="/learn/submissions/:responseId" element={<MySubmissionDetail />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
