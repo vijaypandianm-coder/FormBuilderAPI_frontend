@@ -5,8 +5,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import "./CreateForm.css";
 import duplicate from "./../assets/duplicate.png";
 import Trash from "./../assets/Trash.png";
-import { AuthService } from "../api/auth";        // ✅ use JWT + helper
-import { FormService } from "../api/forms";       // ✅ use service that does meta→layout→status
+import { AuthService } from "../api/auth";
+import { FormService } from "../api/forms";
 
 const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -19,9 +19,7 @@ const FIELD_TYPES = [
   { id: "number", label: "Number", placeholder: "Numeric value" },
 ];
 
-// ---- helpers to build API payload ----
 function mapField(q) {
-  // Map builder question -> backend field schema
   const base = {
     fieldId: q.id,
     label: q.label || "Untitled Question",
@@ -34,14 +32,11 @@ function mapField(q) {
       q.type === "number" ? "number" : "text",
     isRequired: !!q.required,
   };
-
   if (q.type === "dropdown") {
     base.options = Array.isArray(q.options) && q.options.length ? q.options : ["Option 1"];
     base.multi = !!q.multi;
   }
-  if (q.type === "date" && q.dateFormat) {
-    base.dateFormat = q.dateFormat;
-  }
+  if (q.type === "date" && q.dateFormat) base.dateFormat = q.dateFormat;
   if (q.type === "file") {
     base.fileNote = q.fileNote || "File Upload (Only one file allowed)";
     base.fileHelp = q.fileHelp || "Supported files : PDF, PNG, JPG | Max file size 2 MB";
@@ -54,8 +49,7 @@ function buildPayload({ name, desc, visible, questions, status }) {
     title: (name || "Untitled Form").trim() || "Untitled Form",
     description: (desc || "").trim(),
     visible: !!visible,
-    status: status || "Draft", // "Draft" | "Published"
-    // Keep layout compatible with ViewForm (layout.sections[].fields[])
+    status: status || "Draft",
     layout: [
       {
         title: "Section 1",
@@ -67,17 +61,18 @@ function buildPayload({ name, desc, visible, questions, status }) {
   };
 }
 
-// ---- component ----
 export default function CreateForm() {
   const navigate = useNavigate();
   const location = useLocation();
 
   const [activeTab, setActiveTab] = useState(location.state?.tab || "config");
 
-  const [cfgName, setCfgName] = useState("Course Feedback Form");
-  const [cfgDesc, setCfgDesc] = useState(
-    "Help us improve! Share your feedback on your learning experience."
-  );
+  // IMPORTANT: if this is present, we are editing an existing form
+  const editingFormKey = location.state?.formKey || null;
+
+  // No inbuilt defaults; admin must enter these
+  const [cfgName, setCfgName] = useState("");
+  const [cfgDesc, setCfgDesc] = useState("");
   const [cfgVisible, setCfgVisible] = useState(true);
 
   const [questions, setQuestions] = useState([]);
@@ -101,12 +96,7 @@ export default function CreateForm() {
   useEffect(() => {
     localStorage.setItem(
       "fb_create",
-      JSON.stringify({
-        name: cfgName,
-        desc: cfgDesc,
-        visible: cfgVisible,
-        questions,
-      })
+      JSON.stringify({ name: cfgName, desc: cfgDesc, visible: cfgVisible, questions })
     );
   }, [cfgName, cfgDesc, cfgVisible, questions]);
 
@@ -161,7 +151,6 @@ export default function CreateForm() {
 
   const ph = (type) => FIELD_TYPES.find((f) => f.id === type)?.placeholder || "";
 
-  // Dropdown helpers
   const addOption = (qid) =>
     setQuestions((prev) =>
       prev.map((q) =>
@@ -206,131 +195,56 @@ export default function CreateForm() {
         return (
           <div className="dd-wrap">
             {(q.options || ["Option 1"]).map((opt, i) => (
-              <div
-                key={i}
-                className="dd-option-row"
-                style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}
-              >
-                <span
-                  className="dd-index"
-                  style={{
-                    minWidth: 28,
-                    height: 28,
-                    borderRadius: 6,
-                    border: "1px solid #E5E7EB",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    color: "#6B7280",
-                  }}
-                >
+              <div key={i} className="dd-option-row" style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                <span className="dd-index" style={{ minWidth: 28, height: 28, borderRadius: 6, border: "1px solid #E5E7EB", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#6B7280" }}>
                   {i + 1}
                 </span>
-                <input
-                  className="q-preview"
-                  value={opt}
-                  onChange={(e) => updateOption(q.id, i, e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="icon-btn"
-                  title="Remove option"
-                  onClick={() => removeOption(q.id, i)}
-                  disabled={(q.options || []).length <= 1}
-                  style={iconBtnNeutral}
-                >
+                <input className="q-preview" value={opt} onChange={(e) => updateOption(q.id, i, e.target.value)} />
+                <button type="button" className="icon-btn" title="Remove option" onClick={() => removeOption(q.id, i)} disabled={(q.options || []).length <= 1} style={iconBtnNeutral}>
                   ✕
                 </button>
               </div>
             ))}
-
-            <button type="button" className="btn text" onClick={() => addOption(q.id)}>
-              + Add Option
-            </button>
-
+            <button type="button" className="btn text" onClick={() => addOption(q.id)}>+ Add Option</button>
             <div className="dd-select-type" style={{ marginTop: 12, fontSize: 14, color: "#374151" }}>
               <span style={{ marginRight: 10 }}>Selection Type:</span>
               <label style={{ marginRight: 16 }}>
-                <input
-                  type="radio"
-                  name={`seltype-${q.id}`}
-                  checked={!q.multi}
-                  onChange={() => updateQ(q.id, "multi", false)}
-                />{" "}
+                <input type="radio" name={`seltype-${q.id}`} checked={!q.multi} onChange={() => updateQ(q.id, "multi", false)} />{" "}
                 Single Select
               </label>
               <label>
-                <input
-                  type="radio"
-                  name={`seltype-${q.id}`}
-                  checked={!!q.multi}
-                  onChange={() => updateQ(q.id, "multi", true)}
-                />{" "}
+                <input type="radio" name={`seltype-${q.id}`} checked={!!q.multi} onChange={() => updateQ(q.id, "multi", true)} />{" "}
                 Multi Select
               </label>
             </div>
           </div>
         );
-
       case "date":
         return (
           <div className="date-wrap">
             <div style={{ position: "relative" }}>
               <input className="q-preview" placeholder={q.dateFormat || "DD/MM/YYYY"} disabled />
-              <span
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  right: 10,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "#6B7280",
-                }}
-              >
+              <span aria-hidden style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: "#6B7280" }}>
                 📅
               </span>
             </div>
-
             <div className="date-format" style={{ marginTop: 12, fontSize: 14, color: "#374151" }}>
               <span style={{ marginRight: 10 }}>Date Format:</span>
               <label style={{ marginRight: 16 }}>
-                <input
-                  type="radio"
-                  name={`df-${q.id}`}
-                  checked={(q.dateFormat || "DD/MM/YYYY") === "DD/MM/YYYY"}
-                  onChange={() => updateQ(q.id, "dateFormat", "DD/MM/YYYY")}
-                />{" "}
+                <input type="radio" name={`df-${q.id}`} checked={(q.dateFormat || "DD/MM/YYYY") === "DD/MM/YYYY"} onChange={() => updateQ(q.id, "dateFormat", "DD/MM/YYYY")} />{" "}
                 DD/MM/YYYY
               </label>
               <label>
-                <input
-                  type="radio"
-                  name={`df-${q.id}`}
-                  checked={q.dateFormat === "MM-DD-YYYY"}
-                  onChange={() => updateQ(q.id, "dateFormat", "MM-DD-YYYY")}
-                />{" "}
+                <input type="radio" name={`df-${q.id}`} checked={q.dateFormat === "MM-DD-YYYY"} onChange={() => updateQ(q.id, "dateFormat", "MM-DD-YYYY")} />{" "}
                 MM-DD-YYYY
               </label>
             </div>
           </div>
         );
-
       case "file":
         return (
           <div className="file-wrap">
-            <div
-              className="upload-box"
-              style={{
-                border: "1px dashed #D1D5DB",
-                background: "#FAFAFB",
-                borderRadius: 8,
-                padding: 14,
-                marginBottom: 6,
-                color: "#374151",
-                fontSize: 14,
-              }}
-            >
+            <div className="upload-box" style={{ border: "1px dashed #D1D5DB", background: "#FAFAFB", borderRadius: 8, padding: 14, marginBottom: 6, color: "#374151", fontSize: 14 }}>
               {q.fileNote || "File Upload (Only one file allowed)"}
             </div>
             <div style={{ fontSize: 12, color: "#6B7280" }}>
@@ -338,7 +252,6 @@ export default function CreateForm() {
             </div>
           </div>
         );
-
       default:
         return <input className="q-preview" placeholder={ph(q.type)} disabled />;
     }
@@ -346,23 +259,16 @@ export default function CreateForm() {
 
   const handlePreview = () => {
     const payload = {
-      header: {
-        title: "Employee Onboarding",
-        name: cfgName,
-        desc: cfgDesc,
-        visible: cfgVisible,
-      },
+      header: { title: "Employee Onboarding", name: cfgName, desc: cfgDesc, visible: cfgVisible },
       questions,
     };
     localStorage.setItem("fb_preview", JSON.stringify(payload));
     navigate("/preview");
   };
 
-  // ---- local-only fallback writers ----
-  function writeLocal(kind /* "Draft" | "Published" */) {
+  function writeLocal(kind) {
     const formsRaw = localStorage.getItem("fb_forms");
     let forms = formsRaw ? JSON.parse(formsRaw) : [];
-
     const title = (cfgName || "Untitled Form").trim() || "Untitled Form";
     const item = {
       id: Date.now(),
@@ -378,12 +284,11 @@ export default function CreateForm() {
       hasWorkflowLink: false,
       _from: "local",
     };
-
-    // Replace same-title same-status item
     forms = forms.filter((f) => !(f.title === title && f.status === kind));
     localStorage.setItem("fb_forms", JSON.stringify([item, ...forms]));
   }
 
+  // ---- SAVE DRAFT: create new OR update existing (no duplicates)
   const saveDraft = async () => {
     const payload = buildPayload({
       name: cfgName,
@@ -393,10 +298,15 @@ export default function CreateForm() {
       status: "Draft",
     });
 
-    // Try API first if authenticated; fallback to local
     if (AuthService.isAuthenticated()) {
       try {
-        await FormService.create(payload);       // ✅ meta→layout→status(Draft)
+        if (editingFormKey) {
+          // UPDATE in place
+          await FormService.update(editingFormKey, payload);
+        } else {
+          // CREATE new draft
+          await FormService.create(payload);
+        }
         navigate("/", { replace: true });
         setTimeout(() => window.location.reload(), 0);
         return;
@@ -410,6 +320,7 @@ export default function CreateForm() {
     setTimeout(() => window.location.reload(), 0);
   };
 
+  // ---- PUBLISH: create new OR update existing (no duplicates)
   const publishForm = async () => {
     const payload = buildPayload({
       name: cfgName,
@@ -419,10 +330,15 @@ export default function CreateForm() {
       status: "Published",
     });
 
-    // Try API first if authenticated; fallback to local
     if (AuthService.isAuthenticated()) {
       try {
-        await FormService.create(payload);       // ✅ meta→layout→status(Published)
+        if (editingFormKey) {
+          // UPDATE in place: meta + layout + status=Published
+          await FormService.update(editingFormKey, payload);
+        } else {
+          // CREATE brand-new as Published
+          await FormService.create(payload);
+        }
         localStorage.removeItem("fb_create");
         navigate("/", { replace: true });
         setTimeout(() => window.location.reload(), 0);
@@ -433,7 +349,6 @@ export default function CreateForm() {
     }
 
     writeLocal("Published");
-    // also clear builder cache for a clean slate
     localStorage.removeItem("fb_create");
     navigate("/", { replace: true });
     setTimeout(() => window.location.reload(), 0);
@@ -441,8 +356,6 @@ export default function CreateForm() {
 
   return (
     <main className="cfp">
-      {/* duplicate breadcrumb/header removed */}
-
       <div className="cfp-tabs" role="tablist" aria-label="Form sections">
         <button
           role="tab"
@@ -475,7 +388,7 @@ export default function CreateForm() {
               value={cfgName}
               onChange={(e) => setCfgName(e.target.value)}
               maxLength={150}
-              placeholder="Enter Form Name"
+              placeholder="Enter the form name"
             />
             <span className="cfg-count">{cfgName.length}/150</span>
           </div>
@@ -488,7 +401,7 @@ export default function CreateForm() {
               onChange={(e) => setCfgDesc(e.target.value)}
               rows={3}
               maxLength={200}
-              placeholder="Summarize the form’s purpose for internal reference."
+              placeholder="Enter the form description (optional)"
             />
             <span className="cfg-count">{cfgDesc.length}/200</span>
           </div>
@@ -525,12 +438,7 @@ export default function CreateForm() {
                   {FIELD_TYPES.map((f, i) => (
                     <Draggable key={f.id} draggableId={f.id} index={i}>
                       {(p) => (
-                        <div
-                          className="tile"
-                          ref={p.innerRef}
-                          {...p.draggableProps}
-                          {...p.dragHandleProps}
-                        >
+                        <div className="tile" ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}>
                           {f.label}
                         </div>
                       )}
@@ -543,25 +451,33 @@ export default function CreateForm() {
 
             <Droppable droppableId="CANVAS">
               {(prov, snap) => (
-                <section
-                  className={`fb-canvas ${snap.isDraggingOver ? "is-over" : ""}`}
-                  ref={prov.innerRef}
-                  {...prov.droppableProps}
-                >
+                <section className={`fb-canvas ${snap.isDraggingOver ? "is-over" : ""}`} ref={prov.innerRef} {...prov.droppableProps}>
                   <div className="fh-card">
                     <div className="fh-tab">Form Header</div>
-                    <input
-                      className="fh-input"
-                      value={cfgName}
-                      onChange={(e) => setCfgName(e.target.value)}
-                      maxLength={150}
-                    />
-                    <input
-                      className="fh-input"
-                      value={cfgDesc}
-                      onChange={(e) => setCfgDesc(e.target.value)}
-                      maxLength={200}
-                    />
+                    <div style={{ position: "relative", marginBottom: 12 }}>
+                      <input
+                        className="fh-input"
+                        value={cfgName}
+                        onChange={(e) => setCfgName(e.target.value)}
+                        maxLength={80}
+                        placeholder="Enter the form name"
+                      />
+                      <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: "#6B7280", pointerEvents: "none" }}>
+                        {`${cfgName.length}/80`}
+                      </span>
+                    </div>
+                    <div style={{ position: "relative" }}>
+                      <input
+                        className="fh-input"
+                        value={cfgDesc}
+                        onChange={(e) => setCfgDesc(e.target.value)}
+                        maxLength={200}
+                        placeholder="Enter the form description (optional)"
+                      />
+                      <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: "#6B7280", pointerEvents: "none" }}>
+                        {`${cfgDesc.length}/200`}
+                      </span>
+                    </div>
                   </div>
 
                   {questions.length === 0 ? (
@@ -598,44 +514,19 @@ export default function CreateForm() {
 
                           <div className="q-actions">
                             <div className="q-actions-right">
-                              <button
-                                type="button"
-                                className="icon-btn"
-                                title="Duplicate"
-                                onClick={() => duplicateQ(q.id)}
-                                style={iconBtnNeutral}
-                              >
+                              <button type="button" className="icon-btn" title="Duplicate" onClick={() => duplicateQ(q.id)} style={iconBtnNeutral}>
                                 <img src={duplicate} alt="Duplicate" />
                               </button>
-
-                              <button
-                                type="button"
-                                className="icon-btn"
-                                title="Delete"
-                                onClick={() => deleteQ(q.id)}
-                                style={iconBtnNeutral}
-                              >
+                              <button type="button" className="icon-btn" title="Delete" onClick={() => deleteQ(q.id)} style={iconBtnNeutral}>
                                 <img src={Trash} alt="Delete" />
                               </button>
-
                               <label className="toggle-label">
                                 <span>Description</span>
-                                <input
-                                  type="checkbox"
-                                  className="switch"
-                                  checked={q.showDescription}
-                                  onChange={(e) => updateQ(q.id, "showDescription", e.target.checked)}
-                                />
+                                <input type="checkbox" className="switch" checked={q.showDescription} onChange={(e) => updateQ(q.id, "showDescription", e.target.checked)} />
                               </label>
-
                               <label className="toggle-label">
                                 <span>Required</span>
-                                <input
-                                  type="checkbox"
-                                  className="switch"
-                                  checked={q.required}
-                                  onChange={(e) => updateQ(q.id, "required", e.target.checked)}
-                                />
+                                <input type="checkbox" className="switch" checked={q.required} onChange={(e) => updateQ(q.id, "required", e.target.checked)} />
                               </label>
                             </div>
                           </div>

@@ -1,18 +1,17 @@
-// src/App.jsx
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import React from "react";
 import AdminDashboard from "./pages/AdminDashboard";
 import CreateForm from "./pages/CreateForm";
 import PreviewForm from "./pages/PreviewForm";
-import ViewForm from "./pages/ViewForm";
+import ViewForm from "./pages/ViewForm";                 // ✅ admin responses page
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import LearnerForms from "./pages/LearnerForms";
 import MySubmissions from "./pages/MySubmissions";
 import MySubmissionDetail from "./pages/MySubmissionDetail";
-import FormSubmissionPage from "./pages/FormSubmissionPage";
+import FormSubmissionPage from "./pages/FormSubmissionPage"; // ✅ learner submit page
 import { AuthService } from "./api/auth";
-import Layout from "./components/Layout";   // ⬅️ new
+import Layout from "./components/Layout";                   // global header + outlet
 
 function getRole() {
   try {
@@ -40,17 +39,22 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Wrap everything in Layout */}
         <Route element={<Layout />}>
           <Route path="/" element={<RoleHome />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
+
+          {/* Admin */}
           <Route path="/create-form" element={<CreateForm />} />
           <Route path="/preview" element={<PreviewForm />} />
-          <Route path="/forms/:formKey" element={<FormSubmissionPage />} />
+          <Route path="/admin/forms/:formKey" element={<ViewForm />} />   {/* ✅ admin responses */}
+
+          {/* Learner */}
+          <Route path="/forms/:formKey" element={<FormSubmissionPage />} /> {/* ✅ learner submit */}
           <Route path="/learn" element={<LearnerForms />} />
           <Route path="/learn/my-submissions" element={<MySubmissions />} />
           <Route path="/learn/submissions/:responseId" element={<MySubmissionDetail />} />
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

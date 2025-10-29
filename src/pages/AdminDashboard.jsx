@@ -1,4 +1,3 @@
-// src/pages/AdminDashboard.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminFormCard from "../components/AdminFormCard";
@@ -18,7 +17,6 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     let alive = true;
-
     (async () => {
       try {
         setLoading(true);
@@ -37,19 +35,52 @@ export default function AdminDashboard() {
           pageSize: 50,
           status: "All",
         });
-
         if (!alive) return;
 
-        const ui = items.map((f) => ({
-          id: f.formKey,
-          formKey: f.formKey,
-          title: f.title || "Untitled Form",
-          status: f.status || "Draft",
-          meta: f.publishedAt
-            ? [{ k: "Published Date", v: new Date(f.publishedAt).toLocaleDateString() }]
-            : [],
-          _from: "api",
-        }));
+        const ui = items.map((f) => {
+          const formKey     = f.formKey ?? f.FormKey ?? f.key;
+          const title       = f.title ?? f.Title ?? "Untitled Form";
+          const status      = f.status ?? f.Status ?? "Draft";
+          const publishedAt = f.publishedAt ?? f.PublishedAt ?? null;
+          const createdAt   = f.createdAt ?? f.CreatedAt ?? f.created_on ?? null;
+          const createdByRaw =
+            f.createdByName ??
+            f.CreatedByName ??
+            f.ownerName ??
+            f.OwnerName ??
+            f.createdBy ??
+            f.CreatedBy ??
+            f.ownerEmail ??
+            null;
+
+          const createdBy =
+            createdByRaw === 0 || createdByRaw === "0" || createdByRaw == null || String(createdByRaw).trim() === ""
+              ? "Admin"
+              : String(createdByRaw);
+
+          const meta = [];
+          meta.push({
+            k: "Created Date",
+            v: createdAt ? new Date(createdAt).toLocaleDateString() : "—",
+          });
+          if (publishedAt) {
+            meta.push({
+              k: "Published Date",
+              v: new Date(publishedAt).toLocaleDateString(),
+            });
+          }
+          meta.push({ k: "Created By", v: createdBy });
+
+          return {
+            id: formKey ?? f.id,
+            formKey,
+            title,
+            status,
+            meta,
+            _from: "api",
+          };
+        });
+
         setForms(ui);
       } catch (e) {
         const msg = e?.message || "";
@@ -62,12 +93,16 @@ export default function AdminDashboard() {
           setUsingLocal(true);
           const raw = localStorage.getItem("fb_forms");
           const drafts = raw ? JSON.parse(raw) : [];
+          const nowStr = new Date().toLocaleDateString();
           const ui = drafts.map((d) => ({
             id: d.id,
             formKey: null,
             title: d.title || "Untitled Form",
             status: d.status || "Draft",
-            meta: d.meta || [],
+            meta: [
+              { k: "Created Date", v: d.createdAt ? new Date(d.createdAt).toLocaleDateString() : nowStr },
+              { k: "Created By", v: d.createdBy || "Admin" },
+            ],
             _from: "local",
           }));
           setForms(ui);
@@ -76,10 +111,7 @@ export default function AdminDashboard() {
         if (alive) setLoading(false);
       }
     })();
-
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [isAuthed]);
 
   const filtered = useMemo(() => {
@@ -91,12 +123,29 @@ export default function AdminDashboard() {
     navigate("/create-form", { state: { tab: "config" } });
   };
 
-  const handleView = (form) => {
+  // View Form » Responses
+  const handleViewResponses = (form) => {
     if (form._from !== "api" || !form.formKey) {
       alert("This form is a local draft. Publish or refresh after API is reachable to view.");
       return;
     }
-    navigate(`/forms/${encodeURIComponent(form.formKey)}?tab=responses`);
+    navigate(`/admin/forms/${encodeURIComponent(form.formKey)}?tab=responses`);
+  };
+
+  // View Form » Form Configuration (from kebab “View Form”)
+  const openConfigView = (form) => {
+    if (form._from !== "api" || !form.formKey) {
+      alert("This form is a local draft. Publish or refresh after API is reachable to view.");
+      return;
+    }
+    navigate(`/admin/forms/${encodeURIComponent(form.formKey)}?tab=config`);
+  };
+
+  // Builder for drafts (edit)
+  const openEditor = (form) => {
+    navigate("/create-form", {
+      state: { tab: "layout", formKey: form.formKey || null },
+    });
   };
 
   const handleClone = async (form) => {
@@ -110,7 +159,10 @@ export default function AdminDashboard() {
             formKey: key,
             title: `${form.title} (Copy)`,
             status: "Draft",
-            meta: [{ k: "Last Saved", v: new Date().toLocaleDateString() }],
+            meta: [
+              { k: "Created Date", v: new Date().toLocaleDateString() },
+              { k: "Created By", v: "Admin" },
+            ],
             _from: "api",
           },
           ...prev,
@@ -127,7 +179,10 @@ export default function AdminDashboard() {
       title: `${form.title} (Copy)`,
       status: "Draft",
       _from: "local",
-      meta: [{ k: "Last Saved", v: new Date().toLocaleDateString() }],
+      meta: [
+        { k: "Created Date", v: new Date().toLocaleDateString() },
+        { k: "Created By", v: "Admin" },
+      ],
     };
     const next = [copy, ...forms];
     setForms(next);
@@ -137,11 +192,7 @@ export default function AdminDashboard() {
   const handleDelete = async (form) => {
     if (!window.confirm(`Delete form "${form.title}"?`)) return;
     if (form._from === "api" && form.formKey) {
-      try {
-        await FormService.remove(form.formKey);
-      } catch (e) {
-        console.warn("Delete via API failed:", e);
-      }
+      try { await FormService.remove(form.formKey); } catch (e) { console.warn("Delete via API failed:", e); }
     }
     const next = forms.filter((x) => x.id !== form.id);
     setForms(next);
@@ -149,20 +200,12 @@ export default function AdminDashboard() {
   };
 
   const signIn = () => navigate("/login", { state: { from: "/" } });
-  const signOut = () => {
-    AuthService.logout();
-    setIsAuthed(false);
-    setForms([]);
-    navigate("/login", { replace: true });
-  };
 
   return (
-    // ⬇️ No local header/breadcrumb — the global Header will render via Layout
     <div className="adb-main container">
       {!isAuthed && (
         <div className="adb-banner">
-          You are not authenticated (401). Log in to list forms. After logging in, refresh this page.
-          &nbsp;
+          You are not authenticated (401). Log in to list forms. After logging in, refresh this page.&nbsp;
           <button className="adb-primary" onClick={signIn}>Sign in</button>
         </div>
       )}
@@ -191,18 +234,13 @@ export default function AdminDashboard() {
           <button className="adb-primary" onClick={handleCreateForm}>
             Create Form
           </button>
-          {isAuthed && (
-            <button className="adb-secondary" onClick={signOut}>Sign out</button>
-          )}
         </div>
       </div>
 
       <div className="adb-box">
         {loading ? (
           <section className="adb-grid">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="skeleton" />
-            ))}
+            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton" />)}
           </section>
         ) : !isAuthed && !usingLocal ? (
           <div className="adb-empty">Sign in to view forms.</div>
@@ -212,8 +250,9 @@ export default function AdminDashboard() {
               <AdminFormCard
                 key={f.id}
                 form={f}
-                onView={() => handleView(f)}
-                onEdit={() => navigate("/create-form", { state: { tab: "layout" } })}
+                onView={() => handleViewResponses(f)} // Responses tab
+                onConfig={() => openConfigView(f)}     // Config tab
+                onEdit={() => openEditor(f)}            // Builder for drafts
                 onClone={() => handleClone(f)}
                 onDelete={() => handleDelete(f)}
               />

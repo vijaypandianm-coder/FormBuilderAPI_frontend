@@ -1,11 +1,11 @@
-// src/components/AdminFormCard.jsx
 import React, { useEffect, useRef, useState } from "react";
 import "./AdminFormCard.css";
 
 export default function AdminFormCard({
   form,
-  onView = () => {},
-  onEdit = () => {},
+  onView = () => {},    // → View Form » Responses
+  onConfig = () => {},  // → View Form » Form Configuration (new)
+  onEdit = () => {},    // → Builder (for drafts)
   onClone = () => {},
   onDelete = () => {},
 }) {
@@ -23,7 +23,6 @@ export default function AdminFormCard({
 
   const isPublished = String(form.status).toLowerCase() === "published";
   const primaryLabel = isPublished ? "View Form" : "Edit Form";
-  const primaryHandler = isPublished ? () => onView(form) : () => onEdit(form);
 
   return (
     <article className="fc" role="region" aria-label={`${form.title} card`} ref={wrapRef}>
@@ -36,23 +35,39 @@ export default function AdminFormCard({
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-label="More options"
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenuOpen((s) => !s);
-            }}
+            onClick={(e) => { e.stopPropagation(); setMenuOpen((s) => !s); }}
           >
             &#8942;
           </button>
 
           {menuOpen && (
             <div className="kebab-menu" role="menu" onMouseDown={(e) => e.stopPropagation()}>
-              <button className="kebab-item" role="menuitem" onClick={() => { setMenuOpen(false); primaryHandler(); }}>
+              {/* If published → View Form (Config tab); if draft → Edit (builder) */}
+              <button
+                className="kebab-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  if (isPublished) onConfig(form);
+                  else onEdit(form);
+                }}
+              >
                 {primaryLabel}
               </button>
-              <button className="kebab-item" role="menuitem" onClick={() => { setMenuOpen(false); onClone(form); }}>
+
+              <button
+                className="kebab-item"
+                role="menuitem"
+                onClick={() => { setMenuOpen(false); onClone(form); }}
+              >
                 Clone
               </button>
-              <button className="kebab-item danger" role="menuitem" onClick={() => { setMenuOpen(false); onDelete(form); }}>
+
+              <button
+                className="kebab-item danger"
+                role="menuitem"
+                onClick={() => { setMenuOpen(false); onDelete(form); }}
+              >
                 Delete
               </button>
             </div>
@@ -71,7 +86,9 @@ export default function AdminFormCard({
 
       <div className="fc-ft">
         {isPublished ? <span className="pill pill-green">Published</span> : <span className="pill pill-amber">Draft</span>}
-        <button className="btn primary" onClick={() => onView(form)}>View Responses</button>
+        <button className="btn primary" onClick={() => onView(form)}>
+          View Responses
+        </button>
       </div>
     </article>
   );

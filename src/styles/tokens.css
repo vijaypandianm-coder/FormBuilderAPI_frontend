@@ -67,3 +67,10 @@
   --app-bg: #F5F7FA;
   --divider: #E8E8E8;
 }
+/* src/styles/tokens.css (additions; keep your file intact) */
+:root{
+  --primary:#6C4DFF;
+  --primary-ink:#5636F4;
+  --radius-lg:12px;
+  --elev-card:0 1px 1px rgb(0 0 0 / 4%), 0 8px 24px rgb(17 24 39 / 8%);
+}
