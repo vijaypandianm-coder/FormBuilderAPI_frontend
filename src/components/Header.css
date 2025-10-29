@@ -88,3 +88,40 @@
 .signout-btn:active {
   transform: translateY(0.5px);
 }
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-email {
+  font-size: 14px;
+  color: #444;
+}
+
+.signout-btn,
+.signin-btn,
+.register-btn {
+  border: none;
+  padding: 8px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.signout-btn {
+  background: #5D38DF;
+  color: white;
+}
+
+.signin-btn {
+  background: #4c2ab8;
+  color: white;
+}
+
+.register-btn {
+  background: #6f4fd6;
+  color: white;
+}

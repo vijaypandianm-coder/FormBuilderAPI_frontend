@@ -1,8 +1,8 @@
 // src/components/Header.jsx
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import Home from "../assets/Home.png";           // ensure this file exists
-import { AuthService } from "../api/auth";       // <-- correct import
+import Home from "../assets/Home.png";
+import { AuthService } from "../api/auth";
 import "./Header.css";
 
 export default function Header() {
@@ -16,6 +16,8 @@ export default function Header() {
     if (p.startsWith("/preview")) return ["Form Builder", "Preview"];
     return ["Form Builder"];
   })();
+
+  const user = AuthService.getProfile?.();
 
   const handleSignOut = () => {
     AuthService.logout();
@@ -31,14 +33,27 @@ export default function Header() {
         <nav className="breadcrumb" aria-label="Breadcrumb">
           {crumbs.map((c, i) => (
             <span key={i} className={`crumb ${i === crumbs.length - 1 ? "cur" : ""}`}>
-              {c}{i < crumbs.length - 1 ? <span className="crumb-sep">›</span> : null}
+              {c}
+              {i < crumbs.length - 1 ? <span className="crumb-sep">›</span> : null}
             </span>
           ))}
         </nav>
       </div>
 
       <div className="header-right">
-        <button className="signout-btn" onClick={handleSignOut}>Sign out</button>
+        {user ? (
+          <>
+            <span className="user-email">{user.email}</span>
+            <button className="signout-btn" onClick={handleSignOut}>
+              Sign out
+            </button>
+          </>
+        ) : (
+          <>
+            <Link to="/login" className="signin-btn">Sign in</Link>
+            <Link to="/register" className="register-btn">Register</Link>
+          </>
+        )}
       </div>
     </header>
   );

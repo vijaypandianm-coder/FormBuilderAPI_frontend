@@ -4,12 +4,15 @@ import React from "react";
 import AdminDashboard from "./pages/AdminDashboard";
 import CreateForm from "./pages/CreateForm";
 import PreviewForm from "./pages/PreviewForm";
+import ViewForm from "./pages/ViewForm";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import LearnerForms from "./pages/LearnerForms";
 import MySubmissions from "./pages/MySubmissions";
 import MySubmissionDetail from "./pages/MySubmissionDetail";
-import FormSubmissionPage from "./pages/FormSubmissionPage"; // ⬅️ NEW
+import FormSubmissionPage from "./pages/FormSubmissionPage";
 import { AuthService } from "./api/auth";
+import Layout from "./components/Layout";   // ⬅️ new
 
 function getRole() {
   try {
@@ -37,17 +40,19 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<RoleHome />} />
-        <Route path="login" element={<Login />} />
-        <Route path="/create-form" element={<CreateForm />} />
-        <Route path="/preview" element={<PreviewForm />} />
-        {/* When a learner clicks Start Submission, land here */}
-        <Route path="/forms/:formKey" element={<FormSubmissionPage />} /> {/* ⬅️ swapped */}
-        {/* Learner */}
-        <Route path="/learn" element={<LearnerForms />} />
-        <Route path="/learn/my-submissions" element={<MySubmissions />} />
-        <Route path="/learn/submissions/:responseId" element={<MySubmissionDetail />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Wrap everything in Layout */}
+        <Route element={<Layout />}>
+          <Route path="/" element={<RoleHome />} />
+          <Route path="login" element={<Login />} />
+          <Route path="register" element={<Register />} />
+          <Route path="/create-form" element={<CreateForm />} />
+          <Route path="/preview" element={<PreviewForm />} />
+          <Route path="/forms/:formKey" element={<FormSubmissionPage />} />
+          <Route path="/learn" element={<LearnerForms />} />
+          <Route path="/learn/my-submissions" element={<MySubmissions />} />
+          <Route path="/learn/submissions/:responseId" element={<MySubmissionDetail />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
