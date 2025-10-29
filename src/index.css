@@ -13,3 +13,91 @@ button, input, select { font: inherit; }
 /* Prevent any global rule from making every <svg> huge and filled */
 svg { width: auto; height: auto; }
 svg:not([fill]) { fill: none; }
+/* ---- Theme tokens ---- */
+:root{
+  --bg: #F7F9FC;
+  --panel: #FFFFFF;
+  --muted: #6B7280;
+  --text: #111827;
+  --primary: #5B7CFA;
+  --primary-600:#4D6CF2;
+  --border:#E5E7EB;
+  --border-strong:#D1D5DB;
+  --green:#22C55E;
+  --amber:#F59E0B;
+  --red:#EF4444;
+  --chip:#F3F4F6;
+  --chip-active:#EBEEFF;
+}
+
+/* ---- Base ---- */
+*{ box-sizing:border-box }
+html,body,#root{ height:100% }
+body{
+  margin:0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+               Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji",
+               "Segoe UI Emoji", "Segoe UI Symbol";
+  color:var(--text);
+  background:var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* page container */
+.container{
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* buttons */
+.btn{ 
+  font: 500 14px/1 Inter, ui-sans-serif;
+  border-radius: 8px; border:1px solid var(--border);
+  padding:10px 14px; background:#fff; cursor:pointer;
+}
+.btn.primary{
+  background:var(--primary); border-color:var(--primary);
+  color:#fff;
+}
+.btn.primary:hover{ background:var(--primary-600); }
+.btn.ghost{ background:transparent; }
+.btn.small{ padding:6px 10px; border-radius:6px; }
+
+/* chips */
+.chip{
+  border:1px solid var(--border);
+  background:var(--chip);
+  padding:6px 10px; border-radius:999px; font-size:13px;
+}
+.chip.active{ background:var(--chip-active); border-color:var(--primary); color:var(--primary-600); }
+
+/* pills */
+.pill{
+  font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid var(--border);
+}
+.pill-green{ background:#ECFDF5; color:#059669; border-color:#A7F3D0; }
+.pill-amber{ background:#FFFBEB; color:#B45309; border-color:#FDE68A; }
+
+/* inputs */
+input[type="text"], input[type="search"], input[type="email"], input[type="password"],
+textarea, select{
+  width:100%; background:#fff; border:1px solid var(--border);
+  border-radius:8px; padding:10px 12px; font: 400 14px/1.2 Inter, ui-sans-serif;
+}
+textarea{ resize: vertical; }
+
+/* table */
+.table{
+  width:100%; border-collapse:separate; border-spacing:0; background:var(--panel);
+  border:1px solid var(--border); border-radius:12px; overflow:hidden;
+}
+.table thead th{
+  text-align:left; font-weight:600; font-size:13px; color:#374151;
+  background:#F9FAFB; border-bottom:1px solid var(--border);
+  padding:12px 16px;
+}
+.table tbody td{ padding:12px 16px; border-bottom:1px solid #F3F4F6; font-size:14px; }
+.table tbody tr:last-child td{ border-bottom:none; }

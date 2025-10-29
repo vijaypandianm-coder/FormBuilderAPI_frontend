@@ -1,24 +1,21 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+// src/api/http.js
+const BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
-function headers() {
-  const h = { 'Content-Type': 'application/json' };
-  const t = localStorage.getItem('access_token');
-  if (t) h.Authorization = `Bearer ${t}`;
-  return h;
-}
+export async function apiFetch(path, options = {}) {
+  const url = `${BASE}${path.startsWith("/") ? "" : "/"}${path}`;
 
-export async function apiFetch(path, opts = {}) {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: opts.method || 'GET',
-    headers: { ...headers(), ...(opts.headers || {}) },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-    signal: opts.signal
-  });
+  const headers = new Headers(options.headers || {});
+  const token = localStorage.getItem("fb_token");       // <-- JWT here
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (!headers.has("Content-Type") && options.body) headers.set("Content-Type", "application/json");
+
+  const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try { msg = (await res.json())?.message || msg; } catch {}
-    const err = new Error(msg); err.status = res.status; throw err;
+    let message = res.statusText;
+    try { message = (await res.json())?.message || message; } catch {}
+    const err = new Error(message);
+    err.status = res.status;
+    throw err;
   }
-  if (res.status === 204) return null;
-  return res.json();
+  return res.status === 204 ? null : res.json();
 }

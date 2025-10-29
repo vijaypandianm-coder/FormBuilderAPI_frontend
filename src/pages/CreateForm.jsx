@@ -1,10 +1,12 @@
+// src/pages/CreateForm.jsx
 import React, { useEffect, useState } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./CreateForm.css";
 import duplicate from "./../assets/duplicate.png";
 import Trash from "./../assets/Trash.png";
-
+import { AuthService } from "../api/auth";        // ✅ use JWT + helper
+import { FormService } from "../api/forms";       // ✅ use service that does meta→layout→status
 
 const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -17,6 +19,55 @@ const FIELD_TYPES = [
   { id: "number", label: "Number", placeholder: "Numeric value" },
 ];
 
+// ---- helpers to build API payload ----
+function mapField(q) {
+  // Map builder question -> backend field schema
+  const base = {
+    fieldId: q.id,
+    label: q.label || "Untitled Question",
+    type:
+      q.type === "short" ? "text" :
+      q.type === "long" ? "textarea" :
+      q.type === "date" ? "date" :
+      q.type === "dropdown" ? "select" :
+      q.type === "file" ? "file" :
+      q.type === "number" ? "number" : "text",
+    isRequired: !!q.required,
+  };
+
+  if (q.type === "dropdown") {
+    base.options = Array.isArray(q.options) && q.options.length ? q.options : ["Option 1"];
+    base.multi = !!q.multi;
+  }
+  if (q.type === "date" && q.dateFormat) {
+    base.dateFormat = q.dateFormat;
+  }
+  if (q.type === "file") {
+    base.fileNote = q.fileNote || "File Upload (Only one file allowed)";
+    base.fileHelp = q.fileHelp || "Supported files : PDF, PNG, JPG | Max file size 2 MB";
+  }
+  return base;
+}
+
+function buildPayload({ name, desc, visible, questions, status }) {
+  return {
+    title: (name || "Untitled Form").trim() || "Untitled Form",
+    description: (desc || "").trim(),
+    visible: !!visible,
+    status: status || "Draft", // "Draft" | "Published"
+    // Keep layout compatible with ViewForm (layout.sections[].fields[])
+    layout: [
+      {
+        title: "Section 1",
+        fields: (questions || []).map(mapField),
+      },
+    ],
+    createdAt: new Date().toISOString(),
+    access: "Open",
+  };
+}
+
+// ---- component ----
 export default function CreateForm() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -65,7 +116,6 @@ export default function CreateForm() {
 
     if (source.droppableId === "FIELDS" && destination.droppableId === "CANVAS") {
       const type = FIELD_TYPES[source.index];
-
       const q = {
         id: uid(),
         type: type.id,
@@ -74,7 +124,6 @@ export default function CreateForm() {
         showDescription: false,
         required: false,
       };
-
       if (type.id === "dropdown") {
         q.options = ["Option 1"];
         q.multi = false;
@@ -84,7 +133,6 @@ export default function CreateForm() {
         q.fileNote = "File Upload (Only one file allowed)";
         q.fileHelp = "Supported files : PDF, PNG, JPG | Max file size 2 MB";
       }
-
       const next = [...questions];
       next.splice(destination.index, 0, q);
       setQuestions(next);
@@ -118,13 +166,7 @@ export default function CreateForm() {
     setQuestions((prev) =>
       prev.map((q) =>
         q.id === qid
-          ? {
-              ...q,
-              options: [
-                ...(q.options || []),
-                `Option ${(q.options?.length ?? 0) + 1}`,
-              ],
-            }
+          ? { ...q, options: [...(q.options || []), `Option ${(q.options?.length ?? 0) + 1}`] }
           : q
       )
     );
@@ -190,7 +232,6 @@ export default function CreateForm() {
                   value={opt}
                   onChange={(e) => updateOption(q.id, i, e.target.value)}
                 />
-                {/* neutral (no red, no hover) */}
                 <button
                   type="button"
                   className="icon-btn"
@@ -317,51 +358,90 @@ export default function CreateForm() {
     navigate("/preview");
   };
 
-  const saveDraft = () => {
+  // ---- local-only fallback writers ----
+  function writeLocal(kind /* "Draft" | "Published" */) {
     const formsRaw = localStorage.getItem("fb_forms");
     let forms = formsRaw ? JSON.parse(formsRaw) : [];
 
     const title = (cfgName || "Untitled Form").trim() || "Untitled Form";
-    const draft = {
+    const item = {
       id: Date.now(),
       title,
-      status: "Draft",
-      meta: [{ k: "Last Saved", v: new Date().toLocaleDateString() }],
+      status: kind,
+      meta:
+        kind === "Published"
+          ? [
+              { k: "Published By", v: "You" },
+              { k: "Published Date", v: new Date().toLocaleDateString() },
+            ]
+          : [{ k: "Last Saved", v: new Date().toLocaleDateString() }],
       hasWorkflowLink: false,
+      _from: "local",
     };
 
-    forms = forms.filter((f) => !(f.title === title && f.status === "Draft"));
-    localStorage.setItem("fb_forms", JSON.stringify([draft, ...forms]));
-    navigate("/");
+    // Replace same-title same-status item
+    forms = forms.filter((f) => !(f.title === title && f.status === kind));
+    localStorage.setItem("fb_forms", JSON.stringify([item, ...forms]));
+  }
+
+  const saveDraft = async () => {
+    const payload = buildPayload({
+      name: cfgName,
+      desc: cfgDesc,
+      visible: cfgVisible,
+      questions,
+      status: "Draft",
+    });
+
+    // Try API first if authenticated; fallback to local
+    if (AuthService.isAuthenticated()) {
+      try {
+        await FormService.create(payload);       // ✅ meta→layout→status(Draft)
+        navigate("/", { replace: true });
+        setTimeout(() => window.location.reload(), 0);
+        return;
+      } catch (e) {
+        console.warn("Draft save via API failed, using local:", e?.message || e);
+      }
+    }
+
+    writeLocal("Draft");
+    navigate("/", { replace: true });
+    setTimeout(() => window.location.reload(), 0);
   };
 
-  const publishForm = () => {
-    const formsRaw = localStorage.getItem("fb_forms");
-    let forms = formsRaw ? JSON.parse(formsRaw) : [];
-
-    const title = (cfgName || "Untitled Form").trim() || "Untitled Form";
-    const published = {
-      id: Date.now(),
-      title,
+  const publishForm = async () => {
+    const payload = buildPayload({
+      name: cfgName,
+      desc: cfgDesc,
+      visible: cfgVisible,
+      questions,
       status: "Published",
-      meta: [
-        { k: "Published By", v: "You" },
-        { k: "Published Date", v: new Date().toLocaleDateString() },
-      ],
-      hasWorkflowLink: false,
-    };
+    });
 
-    forms = forms.filter((f) => f.title !== title);
-    localStorage.setItem("fb_forms", JSON.stringify([published, ...forms]));
+    // Try API first if authenticated; fallback to local
+    if (AuthService.isAuthenticated()) {
+      try {
+        await FormService.create(payload);       // ✅ meta→layout→status(Published)
+        localStorage.removeItem("fb_create");
+        navigate("/", { replace: true });
+        setTimeout(() => window.location.reload(), 0);
+        return;
+      } catch (e) {
+        console.warn("Publish via API failed, using local:", e?.message || e);
+      }
+    }
+
+    writeLocal("Published");
+    // also clear builder cache for a clean slate
     localStorage.removeItem("fb_create");
-    navigate("/");
+    navigate("/", { replace: true });
+    setTimeout(() => window.location.reload(), 0);
   };
 
   return (
     <main className="cfp">
-      <div className="cfp-bc">
-        <span>Form Builder</span> <span className="sep">›</span> <span className="cur">Create Form</span>
-      </div>
+      {/* duplicate breadcrumb/header removed */}
 
       <div className="cfp-tabs" role="tablist" aria-label="Form sections">
         <button
@@ -518,7 +598,6 @@ export default function CreateForm() {
 
                           <div className="q-actions">
                             <div className="q-actions-right">
-                              {/* neutral duplicate */}
                               <button
                                 type="button"
                                 className="icon-btn"
@@ -529,7 +608,6 @@ export default function CreateForm() {
                                 <img src={duplicate} alt="Duplicate" />
                               </button>
 
-                              {/* neutral delete */}
                               <button
                                 type="button"
                                 className="icon-btn"

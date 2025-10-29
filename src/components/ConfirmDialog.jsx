@@ -1,6 +1,15 @@
-import React from 'react';
+// src/components/ConfirmDialog.jsx
+import React from "react";
 
-export default function ConfirmDialog({ open, title, body, confirmLabel='Yes, Delete', cancelLabel='Cancel', onConfirm, onCancel }) {
+export default function ConfirmDialog({
+  open,
+  title,
+  body,
+  confirmLabel = "Yes",
+  cancelLabel = "Cancel",
+  onConfirm,
+  onCancel,
+}) {
   if (!open) return null;
   return (
     <div className="dlg-root">

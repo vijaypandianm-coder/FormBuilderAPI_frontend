@@ -1,0 +1,162 @@
+/* Scoped styles so admin pages are untouched */
+.learner-forms {
+  --surface: #ffffff;
+  --border: #E5E7EB;
+  --muted: #6B7280;
+  --text: #111827;
+  --bg: #F8FAFC;
+  --primary: #5B3FFF;           /* purple like Figma */
+  --primary-press: #4a33cc;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  background: var(--bg);
+  min-height: 100vh;
+  padding: 24px 28px 40px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* Breadcrumb */
+.learner-forms .lf-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--muted);
+}
+.learner-forms .lf-breadcrumb .home { font-weight: 600; color: #334155; }
+.learner-forms .lf-breadcrumb .sep  { opacity: .7; }
+.learner-forms .lf-breadcrumb .here { color: var(--text); }
+
+/* Header row */
+.learner-forms .lf-head {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.learner-forms .lf-tabs { display: flex; align-items: center; gap: 8px; }
+.learner-forms .lf-tab {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: #374151;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+.learner-forms .lf-tab.active {
+  border-color: #D6D3FF;
+  background: #F3F2FF;
+  color: #3927A1;
+}
+
+.learner-forms .lf-search {
+  position: relative;
+}
+.learner-forms .lf-search .icon {
+  position: absolute;
+  left: 12px; top: 50%; transform: translateY(-50%);
+  font-size: 14px; color: var(--muted);
+}
+.learner-forms .lf-search input {
+  width: 100%; height: 36px;
+  padding: 0 12px 0 34px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  outline: none;
+  background: var(--surface);
+}
+.learner-forms .lf-search input:focus {
+  border-color: #C7D2FE; box-shadow: 0 0 0 3px rgba(99,102,241,.15);
+}
+
+/* Info banner */
+.learner-forms .lf-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: #F0F7FF;
+  border: 1px solid #DBEAFE;
+  color: #1E3A8A;
+  border-radius: 10px;
+  margin: 8px 0 18px;
+}
+.learner-forms .lf-banner .bicon { font-size: 16px; }
+
+/* Grid & cards */
+.learner-forms .lf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+.learner-forms .lf-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 16px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  min-height: 168px;
+}
+.learner-forms .lf-card.skeleton {
+  background: linear-gradient(90deg,#f3f4f6 25%,#eceff3 37%,#f3f4f6 63%);
+  background-size: 400% 100%;
+  animation: lfShimmer 1.2s ease-in-out infinite;
+  border-color: #f1f5f9;
+}
+@keyframes lfShimmer {
+  0% { background-position: 100% 0 }
+  100% { background-position: 0 0 }
+}
+
+.learner-forms .lf-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0F172A;
+}
+.learner-forms .lf-desc {
+  margin: 0 0 10px;
+  color: #475569;
+  line-height: 1.45;
+  max-height: 3.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  line-clamp: 2;
+}
+
+.learner-forms .lf-meta {
+  display: flex; gap: 6px; align-items: baseline;
+  margin-top: auto; /* push to bottom */
+}
+.learner-forms .lf-meta .muted { color: var(--muted); }
+.learner-forms .lf-meta .value { font-weight: 600; color: #1F2937; }
+
+.learner-forms .lf-actions {
+  margin-top: 12px;
+  display: flex; justify-content: flex-start;
+}
+.learner-forms .lf-primary {
+  appearance: none;
+  border: 0;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .02s ease, background .12s ease-in;
+}
+.learner-forms .lf-primary:hover { background: var(--primary-press); }
+.learner-forms .lf-primary:active { transform: translateY(1px); }
+
+.learner-forms .lf-empty {
+  grid-column: 1 / -1;
+  padding: 18px;
+  background: #FFF7ED;
+  color: #9A3412;
+  border: 1px solid #FED7AA;
+  border-radius: 10px;
+}

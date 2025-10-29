@@ -1,14 +1,7 @@
+// src/components/AdminFormCard.jsx
 import React, { useEffect, useRef, useState } from "react";
 import "./AdminFormCard.css";
 
-/**
- * Props
- * - form: {
- *     id, title, status: "Published" | "Draft",
- *     meta: [{k, v}, ...]
- *   }
- * - onView, onEdit, onClone, onDelete
- */
 export default function AdminFormCard({
   form,
   onView = () => {},
@@ -19,7 +12,6 @@ export default function AdminFormCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const wrapRef = useRef(null);
 
-  // Close menu on outside click
   useEffect(() => {
     const handleDocClick = (e) => {
       if (!wrapRef.current) return;
@@ -29,23 +21,14 @@ export default function AdminFormCard({
     return () => document.removeEventListener("mousedown", handleDocClick);
   }, [menuOpen]);
 
-  // Helpers for menu item depending on status
-  const isPublished = form.status === "Published";
+  const isPublished = String(form.status).toLowerCase() === "published";
   const primaryLabel = isPublished ? "View Form" : "Edit Form";
   const primaryHandler = isPublished ? () => onView(form) : () => onEdit(form);
 
   return (
-    <article
-      className="fc"
-      role="region"
-      aria-label={`${form.title} card`}
-      ref={wrapRef}
-    >
-      {/* HEADER with lavender strip + title + 3-dot */}
+    <article className="fc" role="region" aria-label={`${form.title} card`} ref={wrapRef}>
       <div className="fc-hd-strip">
-        <h4 className="fc-title" title={form.title}>
-          {form.title}
-        </h4>
+        <h4 className="fc-title" title={form.title}>{form.title}</h4>
 
         <div className="kebab">
           <button
@@ -58,50 +41,18 @@ export default function AdminFormCard({
               setMenuOpen((s) => !s);
             }}
           >
-            &#8942; {/* vertical ellipsis */}
+            &#8942;
           </button>
 
           {menuOpen && (
-            <div
-              className="kebab-menu"
-              role="menu"
-              // keep menu open while interacting
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                className="kebab-item"
-                role="menuitem"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  primaryHandler();
-                }}
-              >
+            <div className="kebab-menu" role="menu" onMouseDown={(e) => e.stopPropagation()}>
+              <button className="kebab-item" role="menuitem" onClick={() => { setMenuOpen(false); primaryHandler(); }}>
                 {primaryLabel}
               </button>
-
-              <button
-                className="kebab-item"
-                role="menuitem"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  onClone(form); // ✅ clone reliably
-                }}
-              >
+              <button className="kebab-item" role="menuitem" onClick={() => { setMenuOpen(false); onClone(form); }}>
                 Clone
               </button>
-
-              <button
-                className="kebab-item danger"
-                role="menuitem"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(false);
-                  onDelete(form);
-                }}
-              >
+              <button className="kebab-item danger" role="menuitem" onClick={() => { setMenuOpen(false); onDelete(form); }}>
                 Delete
               </button>
             </div>
@@ -109,7 +60,6 @@ export default function AdminFormCard({
         </div>
       </div>
 
-      {/* BODY: meta info */}
       <div className="fc-meta">
         {form.meta?.map((m, i) => (
           <div className="meta-row" key={i}>
@@ -119,20 +69,9 @@ export default function AdminFormCard({
         ))}
       </div>
 
-      {/* FOOTER: status + responses */}
       <div className="fc-ft">
-        {isPublished ? (
-          <span className="pill pill-green">Published</span>
-        ) : (
-          <span className="pill pill-amber">Draft</span>
-        )}
-
-        <button
-          className="btn primary"
-          onClick={() => (isPublished ? onView(form) : onEdit(form))}
-        >
-          View Responses
-        </button>
+        {isPublished ? <span className="pill pill-green">Published</span> : <span className="pill pill-amber">Draft</span>}
+        <button className="btn primary" onClick={() => onView(form)}>View Responses</button>
       </div>
     </article>
   );
