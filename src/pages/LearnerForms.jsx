@@ -25,7 +25,6 @@ function norm(form) {
 
 export default function LearnerForms() {
   const nav = useNavigate();
-
   const [items, setItems] = useState([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
@@ -33,52 +32,32 @@ export default function LearnerForms() {
 
   useEffect(() => {
     let alive = true;
-
     (async () => {
       try {
         setLoading(true);
         setErr("");
-
-        // Primary path: your existing Forms list API
-        const res = await FormService.list({
-          status: "Published",
-          page: 1,
-          pageSize: 100,
-        });
-
-        // Accept multiple shapes safely
+        const res = await FormService.list({ status: "Published", page: 1, pageSize: 100 });
         const raw =
           (res && (res.items || res.Items)) ??
-          (Array.isArray(res) ? res : []) ??
-          [];
-
-        // Normalize + filter to Published (defensive in case API ignores filter)
+          (Array.isArray(res) ? res : []) ?? [];
         const normalized = raw.map(norm).filter((f) => {
           if (!f.formKey) return false;
           return !f.status || f.status.toLowerCase() === "published";
         });
-
-        // Sort: newest first by publishedAt (fallback stable by title)
         normalized.sort((a, b) => {
           const ta = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
           const tb = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
           if (tb !== ta) return tb - ta;
           return String(a.title).localeCompare(String(b.title));
         });
-
-        if (!alive) return;
-        setItems(normalized);
+        if (alive) setItems(normalized);
       } catch (e) {
-        if (!alive) return;
-        setErr(e?.message || "Failed to load");
+        if (alive) setErr(e?.message || "Failed to load");
       } finally {
         if (alive) setLoading(false);
       }
     })();
-
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
   const filtered = useMemo(() => {
@@ -92,23 +71,35 @@ export default function LearnerForms() {
     );
   }, [items, q]);
 
-  const logout = () => {
-    try {
-      AuthService.logout?.();
-    } finally {
-      nav("/login", { replace: true });
-    }
+  const openForm = (key) => {
+    if (!key) return;
+    nav(`/forms/${encodeURIComponent(key)}`);
   };
 
   return (
     <div className="learner-shell">
-      {/* Top bar (UI unchanged) */}
-      <header className="lr-topbar">
-        <div className="lr-left">
-          <div className="lr-app">Form Builder</div>
-          <div className="lr-breadcrumb">Form List</div>
+      {/* ⬇️ No top header here (removed as requested) */}
+
+      {/* Tabs row */}
+      <nav className="lr-tabs" role="tablist" aria-label="Forms">
+        <span className="lr-tab active" role="tab" aria-selected="true">
+          Self-Service Forms
+        </span>
+        <span className="lr-tab disabled" role="tab" aria-disabled="true" title="Coming soon">
+          Mandated Forms
+        </span>
+        <Link className="lr-tab" role="tab" aria-selected="false" to="/learn/my-submissions">
+          My Submission
+        </Link>
+      </nav>
+
+      {/* Toolbar row: banner (left) + search/filter (right) */}
+      <div className="lr-toolbar">
+        <div className="lr-banner">
+          <span className="lr-info-icon" aria-hidden>ℹ️</span>
+          These forms are optional and can be submitted multiple times if needed.
         </div>
-        <div className="lr-right">
+        <div className="lr-tools">
           <div className="lr-search">
             <span aria-hidden>🔍</span>
             <input
@@ -117,83 +108,57 @@ export default function LearnerForms() {
               onChange={(e) => setQ(e.target.value)}
             />
           </div>
-          <button className="lr-filter" type="button" title="Filter">
-            Filter
-          </button>
-          <button className="lr-logout" type="button" onClick={logout}>
-            Sign out
-          </button>
+          <button className="lr-filter" type="button" title="Filter">Filter</button>
         </div>
-      </header>
-
-      {/* Tabs row (UI unchanged) */}
-      <nav className="lr-tabs" role="tablist" aria-label="Forms">
-        <span className="lr-tab active" role="tab" aria-selected="true">
-          Form List
-        </span>
-        <span
-          className="lr-tab disabled"
-          role="tab"
-          aria-disabled="true"
-          title="Coming soon"
-        >
-          Mandated Forms
-        </span>
-        <Link
-          className="lr-tab"
-          role="tab"
-          aria-selected="false"
-          to="/learn/my-submissions"
-        >
-          My Submission
-        </Link>
-      </nav>
-
-      {/* Info banner (UI unchanged) */}
-      <div className="lr-banner">
-        <span className="lr-info-icon" aria-hidden>
-          ℹ️
-        </span>
-        These forms are optional and can be submitted multiple times if needed.
       </div>
 
-      {/* Grid of cards (UI unchanged) */}
+      {/* Cards grid */}
       <section className="lr-grid">
-        {loading && <div className="lr-empty">Loading…</div>}
+        {loading && (
+          <>
+            <div className="lr-card lr-skel" />
+            <div className="lr-card lr-skel" />
+            <div className="lr-card lr-skel" />
+          </>
+        )}
+
         {!loading && err && <div className="lr-error">{err}</div>}
+
         {!loading && !err && filtered.length === 0 && (
           <div className="lr-empty">No forms found.</div>
         )}
 
-        {!loading &&
-          !err &&
-          filtered.map((f) => (
-            <article key={f.formKey} className="lr-card" aria-label={f.title}>
-              <div className="lr-card-body">
-                <h3 className="lr-card-title">{f.title}</h3>
-                <p className="lr-card-desc">{f.description || "—"}</p>
-                <div className="lr-meta">
-                  <span className="lr-meta-k">Published Date:</span>
-                  <span className="lr-meta-v">
-                    {f.publishedAt
-                      ? new Date(f.publishedAt).toLocaleDateString()
-                      : "-"}
-                  </span>
-                </div>
+        {!loading && !err && filtered.map((f) => (
+          <article key={f.formKey} className="lr-card" aria-label={f.title}>
+            <div className="lr-card-body">
+              <h3 className="lr-card-title">{f.title}</h3>
+
+              {/* 2-line clamp; uniform block height */}
+              <p className="lr-card-desc">{f.description || "—"}</p>
+
+              <div className="lr-meta-row">
+                <span className="lr-meta-k">Due Date:</span>
+                <span className="lr-meta-v">
+                  {f.publishedAt ? new Date(f.publishedAt).toLocaleDateString() : "—"}
+                </span>
               </div>
-              <div className="lr-card-cta">
-                <button
-                  className="lr-primary"
-                  onClick={() =>
-                    f.formKey && nav(`/forms/${encodeURIComponent(f.formKey)}`)
-                  }
-                  disabled={!f.formKey}
-                >
-                  Start Submission
-                </button>
+
+              <div className="lr-badges">
+                <span className="pill pill-green">Training Needs Form</span>
               </div>
-            </article>
-          ))}
+            </div>
+
+            <div className="lr-card-cta">
+              <button
+                className="lr-primary"
+                onClick={() => openForm(f.formKey)}
+                disabled={!f.formKey}
+              >
+                Start Submission
+              </button>
+            </div>
+          </article>
+        ))}
       </section>
     </div>
   );
