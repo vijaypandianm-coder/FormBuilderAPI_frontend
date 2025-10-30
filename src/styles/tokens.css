@@ -1,76 +1,52 @@
-:root{
-  /* Typography (from screenshots) */
-  --font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+/* src/styles/tokens.css */
+:root {
+  /* Typography */
+  --font-family: "Lato", "Helvetica Neue", Arial, sans-serif;
 
-  --text-title-size: 16px;      /* card title */
+  --text-title-size: 16px;
   --text-title-weight: 600;
-  --text-body-size: 14px;       /* meta text / button text */
+  --text-body-size: 14px;
   --text-body-weight: 400;
 
-  --text-color: #000000;        /* titles */
-  --text-muted: #6E6E6E;        /* meta rows */
+  --text-color: #111827;
+  --text-muted: #6B7280;
 
-  /* Page / frame paddings and gaps */
-  --page-padding-x: 40px;       /* frame left/right = 40 */
-  --section-gap: 12px;          /* header->grid gap */
-  --grid-gap: 24px;             /* vertical frame gap shown */
+  --page-padding-x: 40px;
+  --section-gap: 12px;
+  --grid-gap: 24px;
 
-  /* Grid columns */
-  --grid-col-width: 421px;      /* card width fixed in Figma */
+  --grid-col-width: 421px;
 
-  /* Card */
   --card-width: 421px;
   --card-radius: 12px;
   --card-padding: 16px;
   --card-gap: 16px;
-  --card-bg: #F0F0F0;
+  --card-bg: #FFFFFF;
   --card-border: #D8D8D8;
   --card-shadow: 0 4px 8px rgba(0,0,0,0.16);
 
-  /* Section header in card (light strip) */
-  --card-strip-bg: #f0f0f0;     /* from “selected” strip #F2EFFC */
-  --card-strip-height: 56px;    /* top strip fill×56 */
+  --card-strip-bg: #F2EFFC;
+  --card-strip-height: 56px;
 
-  /* Search box */
   --search-width: 280px;
   --search-height: 40px;
   --search-radius: 8px;
-  --search-border: rgba(0,0,0,0.24);
-  --search-pad-x: 8px;
-  --search-pad-y: 6px;
 
-  /* Primary buttons */
   --btn-height: 40px;
   --btn-radius: 8px;
   --btn-pad-x: 16px;
   --btn-pad-y: 10px;
-  --btn-shadow: 0 4px 8px rgba(0,0,0,0.16);
-  --primary: #5D38DF;
+  --primary: #6C4DFF;
+  --primary-ink: #5636F4;
   --on-primary: #FFFFFF;
 
-  /* Status pills (32px fixed) */
   --pill-height: 32px;
   --pill-radius: 6px;
-  --pill-gap: 10px;
-  --pill-published-border: #27AE60;
-  --pill-published-bg: #E6F4EA;
-  --pill-published-text: #0B6B43;
-  --pill-draft-border: #F2C94C;
-  --pill-draft-bg: #FFF7D6;
-  --pill-draft-text: #8A6D1A;
 
-  /* Toggle */
-  --toggle-purple: #5D38DF;
-
-  /* Canvas */
   --panel-bg: #FFFFFF;
   --app-bg: #F5F7FA;
   --divider: #E8E8E8;
-}
-/* src/styles/tokens.css (additions; keep your file intact) */
-:root{
-  --primary:#6C4DFF;
-  --primary-ink:#5636F4;
-  --radius-lg:12px;
-  --elev-card:0 1px 1px rgb(0 0 0 / 4%), 0 8px 24px rgb(17 24 39 / 8%);
+
+  --radius-lg: 12px;
+  --elev-card: 0 1px 1px rgb(0 0 0 / 4%), 0 8px 24px rgb(17 24 39 / 8%);
 }

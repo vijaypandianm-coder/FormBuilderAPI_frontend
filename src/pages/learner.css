@@ -242,3 +242,133 @@
 
 /* accessibility helpers */
 .vis-hidden{ position:absolute !important; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+/* ——— Enforce Lato everywhere ——— */
+:root {
+  --font-family: "Lato", "Helvetica Neue", Arial, sans-serif;
+}
+
+body, button, input, select, textarea {
+  font-family: var(--font-family) !important;
+}
+
+/* ===== FORM SUBMISSION ===== */
+.fs-shell {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px 32px 80px;
+  background: #F7F9FC;
+  color: #111827;
+}
+
+/* full-width lavender strip (title + description) */
+.fs-hero{
+  width: 100%;
+  background: #F2EFFC;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 0 0 16px 0;
+}
+.fs-hero-title{
+  text-align: center;
+  font-weight: 700;
+  font-size: 16px;
+  margin: 0 0 6px;
+  color:#111827;
+}
+.fs-hero-desc{
+  text-align: center;       /* centered per requirement */
+  font-size: 14px;
+  line-height: 20px;
+  color:#262626;
+  max-width: 1100px;        /* keeps long text readable */
+  margin: 0 auto;
+}
+
+/* main card */
+.fs-card{
+  width: 916px;
+  max-width: 100%;
+  margin: 24px auto 12px;
+  background: #fff;
+  border: 1px solid #D8D8D8;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  overflow: hidden;
+}
+.fs-card::before{
+  content: "";
+  display: block;
+  height: 8px;
+  width: 100%;
+  background: linear-gradient(90deg, #6C4DFF 0%, #5B3FFF 100%);
+}
+.fs-card-header { padding: 20px 24px 12px; border-bottom: 1px solid #E5E7EB; }
+.fs-card-title  { font-weight: 700; font-size: 18px; margin: 0 0 6px; }
+.fs-card-sub    { color: #6B7280; font-size: 14px; }
+
+.fs-card-body { padding: 16px 24px 24px; }
+
+/* field rows (unchanged from your latest) */
+.fs-field{ border:none; border-radius:0; padding:0 0 20px; margin-bottom:20px; background:transparent; }
+.fs-qrow{ display:flex; gap:12px; align-items:flex-start; margin-bottom:8px; }
+.fs-idx{ display:inline-grid; place-items:center; width:24px; height:24px; border-radius:999px; border:1px solid #E5E7EB; color:#6B46E5; font-weight:700; font-size:12px; }
+.fs-label{ font-weight:600; color:#111827; }
+.fs-hint{ margin-top:4px; color:#6B7280; font-size:12px; }
+.fs-input{ width:100%; border:1px solid #E5E7EB; border-radius:8px; padding:10px 12px; font-size:14px; background:#fff; }
+.fs-input:focus{ outline:none; border-color:#C7D2FE; box-shadow:0 0 0 3px rgba(99,102,241,.15); }
+textarea.fs-input{ min-height:88px; resize:vertical; }
+.fs-input[type="date"]{ height:40px; }
+.fs-list{ display:flex; flex-direction:column; gap:10px; margin-top:6px; }
+.fs-opt{ display:flex; align-items:center; gap:10px; font-size:14px; color:#1F2937; }
+
+/* footer buttons — Clear left, Submit right */
+.fs-card-footer{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px 16px 16px;
+}
+.fs-spacer{ flex:1; }
+.ghost{
+  appearance:none;
+  background:transparent;
+  border:1px solid #E5E7EB;
+  border-radius:8px;
+  padding:10px 14px;
+  font-weight:600;
+  cursor:pointer;
+}
+.lr-primary{
+  appearance:none;
+  border:0;
+  height:40px;
+  padding:0 18px;
+  border-radius:9px;
+  background:#5B3FFF;
+  color:#fff;
+  font-weight:700;
+  cursor:pointer;
+}
+.lr-primary:hover{ background:#4a33cc; }
+
+/* info banner directly under card */
+.fs-info-banner{
+  width: 916px;
+  max-width: 100%;
+  margin: 8px auto 0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  border:1px solid #DBEAFE;
+  background:#F0F7FF;
+  color:#1E3A8A;
+  padding:10px 12px;
+  border-radius:10px;
+}
+
+@media (max-width: 980px){
+  .fs-card, .fs-info-banner{ width:100%; }
+}

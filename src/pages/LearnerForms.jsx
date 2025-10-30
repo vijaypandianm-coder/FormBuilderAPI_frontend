@@ -5,6 +5,7 @@ import { FormService } from "../api/forms";
 import { AuthService } from "../api/auth";
 import "./learner.css";
 
+
 function norm(form) {
   const status = (form?.status ?? form?.Status ?? "").toString();
   return {
@@ -137,15 +138,15 @@ export default function LearnerForms() {
               <p className="lr-card-desc">{f.description || "—"}</p>
 
               <div className="lr-meta-row">
-                <span className="lr-meta-k">Due Date:</span>
+                <span className="lr-meta-k">Published Date:</span>
                 <span className="lr-meta-v">
                   {f.publishedAt ? new Date(f.publishedAt).toLocaleDateString() : "—"}
                 </span>
               </div>
 
-              <div className="lr-badges">
+              {/* <div className="lr-badges">
                 <span className="pill pill-green">Training Needs Form</span>
-              </div>
+              </div> */}
             </div>
 
             <div className="lr-card-cta">
