@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import ResponseService from "../api/responses";
 import { FormService } from "../api/forms";
 import "./learner.css";
+import search from "../assets/Search.png"
+import view from "../assets/ViewSub.png"
 
 const toStr = (x) => (x == null ? "" : String(x));
 
@@ -225,7 +227,7 @@ export default function MySubmissions() {
                           title="View submission"
                           onClick={() => nav(`/learn/submissions/${encodeURIComponent(r.responseId)}`)}
                         >
-                          🗒️
+                          <img src={view} alt="" style={{width:20, height:20}}/>
                         </button>
                       </td>
                     </tr>

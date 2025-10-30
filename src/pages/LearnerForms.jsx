@@ -4,6 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { FormService } from "../api/forms";
 import { AuthService } from "../api/auth";
 import "./learner.css";
+import search from "../assets/Search.png"
 
 
 function norm(form) {
@@ -102,7 +103,7 @@ export default function LearnerForms() {
         </div>
         <div className="lr-tools">
           <div className="lr-search">
-            <span aria-hidden>🔍</span>
+            <img src={search} alt="" style={{width:20, height:20}}/>
             <input
               placeholder="Search"
               value={q}

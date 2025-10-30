@@ -480,11 +480,11 @@ export default function CreateForm() {
                     </div>
                   </div>
 
-                  {questions.length === 0 ? (
+                  {/* {questions.length === 0 ? (
                     <div className="drop-empty">Drag fields from the left panel</div>
                   ) : (
                     <div className="sec-hd">Section 1 of 1</div>
-                  )}
+                  )} */}
 
                   {questions.map((q, index) => (
                     <Draggable key={q.id} draggableId={q.id} index={index}>

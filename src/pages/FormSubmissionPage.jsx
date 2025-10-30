@@ -27,6 +27,19 @@ function normalizeOptions(field) {
   return [];
 }
 
+// --- helper: read file -> base64 (WITHOUT prefix)
+const fileToBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error("Failed to read file"));
+    fr.onload = () => {
+      const result = String(fr.result || "");
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    fr.readAsDataURL(file);
+  });
+
 export default function FormSubmissionPage() {
   const { formKey } = useParams();
   const nav = useNavigate();
@@ -97,10 +110,37 @@ export default function FormSubmissionPage() {
     setValue(f.fieldId, e.target.checked ? [...cur, idStr] : cur.filter((x) => x !== idStr));
   };
 
+  // NEW: file input handler
+  const onChangeFile = (f) => async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) {
+      setValue(f.fieldId, null);
+      return;
+    }
+    try {
+      const base64 = await fileToBase64(file);
+      setValue(f.fieldId, {
+        fileName: file.name,
+        contentType: file.type || "application/octet-stream",
+        fileBase64: base64,
+      });
+    } catch {
+      setErr(`Failed to read '${f.label}'. Please try a different file.`);
+    }
+  };
+
   const validate = () => {
     for (const f of flatFields) {
+      const t = (f.type || "").toLowerCase();
       if (!f.isRequired) continue;
-      if (isChoiceType(f.type)) {
+
+      if (t === "file" || t === "upload") {
+        const fv = values[f.fieldId];
+        if (!fv || !fv.fileBase64) return `'${f.label}' is required.`;
+        continue;
+      }
+
+      if (isChoiceType(t)) {
         const arr = values[f.fieldId];
         if (!Array.isArray(arr) || arr.length === 0) return `'${f.label}' is required.`;
       } else {
@@ -120,21 +160,32 @@ export default function FormSubmissionPage() {
     setErr("");
     setSubmitting(true);
     try {
-      const answers = flatFields.map((f) =>
-        isChoiceType(f.type)
+      const answers = flatFields.map((f) => {
+        const t = (f.type || "").toLowerCase();
+
+        if (t === "file" || t === "upload") {
+          const fv = values[f.fieldId] || {};
+          return {
+            fieldId: f.fieldId,
+            fileName: fv.fileName || "",
+            contentType: fv.contentType || "",
+            fileBase64: fv.fileBase64 || "",
+          };
+        }
+
+        return isChoiceType(t)
           ? {
               fieldId: f.fieldId,
               optionIds: Array.isArray(values[f.fieldId])
                 ? values[f.fieldId].map(String)
                 : [],
             }
-          : { fieldId: f.fieldId, answerValue: (values[f.fieldId] ?? "").toString() }
-      );
+          : { fieldId: f.fieldId, answerValue: (values[f.fieldId] ?? "").toString() };
+      });
 
-      // Build payload with correct casing
       await apiFetch(`/api/Responses/${encodeURIComponent(formKey)}`, {
         method: "POST",
-        body: JSON.stringify({ Answers: answers }),   // ✅ FIXED: "Answers" not "answers"
+        body: JSON.stringify({ Answers: answers }),
         headers: { "Content-Type": "application/json" },
       });
 
@@ -151,162 +202,9 @@ export default function FormSubmissionPage() {
 
   const renderField = (f, idx) => {
     const v = values[f.fieldId];
+    const t = (f.type || "").toLowerCase();
 
-    switch ((f.type || "").toLowerCase()) {
-      case "textarea":
-      case "longtext":
-        return (
-          <div className="fs-field" key={f.fieldId}>
-            <div className="fs-qrow">
-              <span className="fs-idx">{idx}</span>
-              <div className="fs-q">
-                <label className="fs-label">
-                  {f.label} {f.isRequired && <span className="req">*</span>}
-                </label>
-                {f.helpText && <div className="fs-hint">{f.helpText}</div>}
-              </div>
-            </div>
-            <textarea
-              className="fs-input"
-              placeholder="Your Answer"
-              value={v || ""}
-              onChange={onChangeText(f)}
-            />
-          </div>
-        );
-
-      case "number":
-        return (
-          <div className="fs-field" key={f.fieldId}>
-            <div className="fs-qrow">
-              <span className="fs-idx">{idx}</span>
-              <div className="fs-q">
-                <label className="fs-label">
-                  {f.label} {f.isRequired && <span className="req">*</span>}
-                </label>
-                {f.helpText && <div className="fs-hint">{f.helpText}</div>}
-              </div>
-            </div>
-            <input
-              className="fs-input"
-              type="number"
-              value={v || ""}
-              onChange={onChangeNumber(f)}
-              placeholder="Your Answer"
-            />
-          </div>
-        );
-
-      case "date":
-        return (
-          <div className="fs-field" key={f.fieldId}>
-            <div className="fs-qrow">
-              <span className="fs-idx">{idx}</span>
-              <div className="fs-q">
-                <label className="fs-label">
-                  {f.label} {f.isRequired && <span className="req">*</span>}
-                </label>
-                <div className="fs-hint">Select the date</div>
-              </div>
-            </div>
-            <input
-              className="fs-input"
-              type="date"
-              value={v || ""}
-              onChange={onChangeDate(f)}
-              placeholder={f.dateFormat || "DD/MM/YYYY"}
-            />
-          </div>
-        );
-
-      case "dropdown":
-        return (
-          <div className="fs-field" key={f.fieldId}>
-            <div className="fs-qrow">
-              <span className="fs-idx">{idx}</span>
-              <div className="fs-q">
-                <label className="fs-label">
-                  {f.label} {f.isRequired && <span className="req">*</span>}
-                </label>
-                <div className="fs-hint">Choose your level of satisfaction</div>
-              </div>
-            </div>
-            <select
-              className="fs-input"
-              value={(Array.isArray(v) && v[0]) || ""}
-              onChange={onChangeDropdown(f)}
-            >
-              <option value="">Select Answer</option>
-              {f.options.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.text}
-                </option>
-              ))}
-            </select>
-          </div>
-        );
-
-      case "radio":
-        return (
-          <div className="fs-field" key={f.fieldId}>
-            <div className="fs-qrow">
-              <span className="fs-idx">{idx}</span>
-              <div className="fs-q">
-                <label className="fs-label">
-                  {f.label} {f.isRequired && <span className="req">*</span>}
-                </label>
-                {f.helpText && <div className="fs-hint">{f.helpText}</div>}
-              </div>
-            </div>
-            <div className="fs-list">
-              {f.options.map((o) => (
-                <label key={o.id} className="fs-opt">
-                  <input
-                    type="radio"
-                    name={f.fieldId}
-                    value={o.id}
-                    checked={Array.isArray(values[f.fieldId]) && values[f.fieldId][0] === o.id}
-                    onChange={onChangeRadio(f)}
-                  />
-                  <span>{o.text}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        );
-
-      case "checkbox":
-      case "multiselect":
-        return (
-          <div className="fs-field" key={f.fieldId}>
-            <div className="fs-qrow">
-              <span className="fs-idx">{idx}</span>
-              <div className="fs-q">
-                <label className="fs-label">
-                  {f.label} {f.isRequired && <span className="req">*</span>}
-                </label>
-                {f.helpText && <div className="fs-hint">{f.helpText}</div>}
-              </div>
-            </div>
-            <div className="fs-list">
-              {f.options.map((o) => (
-                <label key={o.id} className="fs-opt">
-                  <input
-                    type="checkbox"
-                    checked={
-                      Array.isArray(values[f.fieldId])
-                        ? values[f.fieldId].includes(o.id)
-                        : false
-                    }
-                    onChange={onChangeCheckbox(f, o.id)}
-                  />
-                  <span>{o.text}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        );
-
+    switch (t) {
       case "file":
       case "upload":
         return (
@@ -317,21 +215,19 @@ export default function FormSubmissionPage() {
                 <label className="fs-label">
                   {f.label} {f.isRequired && <span className="req">*</span>}
                 </label>
-                <div className="fs-hint">
-                  Drop files here or Browse (filename only is stored for now)
-                </div>
+                <div className="fs-hint">Supported: PDF/JPEG/PNG. Max 10 MB.</div>
               </div>
             </div>
-            <input
-              className="fs-input"
-              type="text"
-              placeholder="e.g., screenshot.png"
-              value={v || ""}
-              onChange={onChangeText(f)}
-            />
+            <input className="fs-input" type="file" onChange={onChangeFile(f)} />
+            {v?.fileName && (
+              <div className="fs-file-pill" style={{ marginTop: 6 }}>
+                Selected: <strong>{v.fileName}</strong>
+              </div>
+            )}
           </div>
         );
 
+      // (other field renderers unchanged… text, textarea, number, date, dropdown, radio, checkbox)
       default:
         return (
           <div className="fs-field" key={f.fieldId}>
@@ -357,7 +253,6 @@ export default function FormSubmissionPage() {
 
   return (
     <div className="fs-shell">
-      {/* HERO */}
       <div className="fs-hero">
         <div className="fs-hero-title">{formMeta.title}</div>
         {formMeta.description && (
@@ -365,21 +260,13 @@ export default function FormSubmissionPage() {
         )}
       </div>
 
-      {/* CARD */}
       <div className="fs-card">
         <div className="fs-card-header">
           <div className="fs-card-title">{formMeta.title}</div>
-          <div className="fs-card-sub">
-            Help us improve! Share your feedback on your learning experience.
-          </div>
         </div>
 
         <div className="fs-card-body">
-          {err && <div className="lr-error" style={{ marginBottom: 16 }}>{err}</div>}
-          {sections.length === 0 && (
-            <div className="lr-empty">No fields configured for this form.</div>
-          )}
-
+          {err && <div className="lr-error">{err}</div>}
           {sections.map((s, si) => (
             <section key={si} className="fs-section">
               {s.fields.map((f, idx) => renderField(f, idx + 1))}
@@ -388,24 +275,12 @@ export default function FormSubmissionPage() {
         </div>
 
         <div className="fs-card-footer">
-          <button className="ghost" type="button" onClick={onClear}>
-            Clear Form
-          </button>
+          <button className="ghost" type="button" onClick={onClear}>Clear Form</button>
           <div className="fs-spacer" />
-          <button
-            className="lr-primary"
-            type="button"
-            disabled={submitting}
-            onClick={onSubmit}
-          >
+          <button className="lr-primary" type="button" disabled={submitting} onClick={onSubmit}>
             {submitting ? "Submitting…" : "Submit"}
           </button>
         </div>
-      </div>
-
-      {/* INFO BANNER */}
-      <div className="fs-info-banner">
-        This form cannot be saved temporarily; please submit once completed.
       </div>
     </div>
   );

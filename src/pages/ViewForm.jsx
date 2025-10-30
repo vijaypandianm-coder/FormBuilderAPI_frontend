@@ -20,7 +20,7 @@ export default function ViewForm() {
   const layout = form?.layout || null;
 
   // responses state
-  const [activeRespTab, setActiveRespTab] = useState("summary"); // "summary" | "individual"
+  const [activeRespTab, setActiveRespTab] = useState("summary");
   const [respQ, setRespQ] = useState("");
   const [respPage, setRespPage] = useState(1);
   const [respPageSize, setRespPageSize] = useState(10);
@@ -29,7 +29,7 @@ export default function ViewForm() {
   const respPages = Math.max(1, Math.ceil(respTotal / respPageSize));
   const [selectedRespId, setSelectedRespId] = useState(null);
 
-  // username cache: { [userId]: "Alice" }
+  // username cache
   const [userNameMap, setUserNameMap] = useState({});
 
   /* ---------------- URL sync ---------------- */
@@ -62,8 +62,6 @@ export default function ViewForm() {
   }, [formKey]);
 
   /* ---------------- label helpers ---------------- */
-
-  // Normalize candidate keys (handles "form/..:fieldId", UUIDs etc.)
   const normalizeKey = (k) => {
     if (k == null) return "";
     const s = String(k);
@@ -72,15 +70,11 @@ export default function ViewForm() {
     return (hexTail ? hexTail[0] : last).toLowerCase();
   };
 
-  // Build a tolerant label index; supports layout.sections OR root array
   const buildLabelIndex = (lyt) => {
     const idx = {};
     const sections = Array.isArray(lyt?.sections)
       ? lyt.sections
-      : Array.isArray(lyt)
-        ? lyt
-        : [];
-
+      : Array.isArray(lyt) ? lyt : [];
     sections.forEach((s) => {
       const fields = Array.isArray(s?.fields) ? s.fields : [];
       fields.forEach((f) => {
@@ -88,16 +82,14 @@ export default function ViewForm() {
         const candidates = [
           f.fieldId, f.id, f.key, f.name, f.slug, f.dbKey, f.code, f.uuid
         ].filter(Boolean);
-
         candidates.forEach((k) => {
           const raw = String(k);
-          idx[raw] = label;                 // raw key
-          idx[raw.toLowerCase()] = label;   // lower-case variant
-          idx[normalizeKey(raw)] = label;   // normalized tail
+          idx[raw] = label;
+          idx[raw.toLowerCase()] = label;
+          idx[normalizeKey(raw)] = label;
         });
       });
     });
-
     return idx;
   };
 
@@ -105,25 +97,21 @@ export default function ViewForm() {
     const raw = fieldId != null ? String(fieldId) : "";
     const norm = normalizeKey(raw);
 
-    // direct hits
     if (labelIndex[raw]) return labelIndex[raw];
     if (labelIndex[raw.toLowerCase()]) return labelIndex[raw.toLowerCase()];
     if (labelIndex[norm]) return labelIndex[norm];
 
-    // suffix hit
     const hit = Object.keys(labelIndex).find((k) => {
       const kn = normalizeKey(k);
       return raw.endsWith(k) || raw.toLowerCase().endsWith(k.toLowerCase()) || norm === kn || norm.endsWith(kn);
     });
     if (hit) return labelIndex[hit];
 
-    // last-chance scan (very cheap for typical sizes)
     const sections = Array.isArray(lyt?.sections) ? lyt.sections : (Array.isArray(lyt) ? lyt : []);
     for (const s of sections) {
       for (const f of (s?.fields || [])) {
         const keys = [f.fieldId, f.id, f.key, f.name, f.slug, f.dbKey, f.code, f.uuid]
-          .filter(Boolean)
-          .map(String);
+          .filter(Boolean).map(String);
         if (keys.some(k => {
           const kn = normalizeKey(k);
           return raw.endsWith(k) || raw.toLowerCase().endsWith(k.toLowerCase()) || norm === kn || norm.endsWith(kn);
@@ -132,13 +120,10 @@ export default function ViewForm() {
         }
       }
     }
-
-    // backend fallbacks (if present)
     return fallbacks.fieldLabel || fallbacks.label || fallbacks.questionLabel || raw;
   };
 
-  /* ---------------- username helpers (read-only) ---------------- */
-
+  /* ---------------- username helpers ---------------- */
   const safeJson = async (url, signal) => {
     try {
       const r = await fetch(url, { signal });
@@ -170,7 +155,6 @@ export default function ViewForm() {
     const missing = ids.filter((id) => !(id in userNameMap));
     if (!missing.length) return;
 
-    // try bulk endpoints (no backend change required if one exists)
     const bulkCandidates = [
       `/api/users/by-ids?ids=${encodeURIComponent(missing.join(","))}`,
       `/api/admin/users/by-ids?ids=${encodeURIComponent(missing.join(","))}`,
@@ -188,7 +172,6 @@ export default function ViewForm() {
       }
     }
 
-    // per-id fallbacks
     const perIdCandidates = (id) => [
       `/api/users/${id}`,
       `/api/admin/users/${id}`,
@@ -225,10 +208,8 @@ export default function ViewForm() {
 
         const flat = await ResponsesApi.list(Number(formKey));
 
-        // label index (matches Form Layout behaviour)
         const labelIdx = buildLabelIndex(layout);
 
-        // group by responseId
         const byId = new Map();
         flat.forEach((row) => {
           if (!byId.has(row.responseId)) {
@@ -239,7 +220,6 @@ export default function ViewForm() {
               fields: [],
             });
           }
-
           byId.get(row.responseId).fields.push({
             fieldId: row.fieldId,
             label: resolveLabel(row.fieldId, row, labelIdx, layout),
@@ -247,7 +227,6 @@ export default function ViewForm() {
           });
         });
 
-        // sort & filter
         const query = respQ.trim().toLowerCase();
         let subs = Array.from(byId.values()).sort(
           (a, b) => new Date(b.submittedOn) - new Date(a.submittedOn)
@@ -263,23 +242,21 @@ export default function ViewForm() {
           );
         }
 
-        // pagination
         const total = subs.length;
         const start = (respPage - 1) * respPageSize;
         const pageRows = subs.slice(start, start + respPageSize);
 
-        // resolve usernames (non-blocking)
         const idsOnPage = [...new Set(pageRows.map(r => r.userId).filter(v => v != null))];
         fetchUsernamesIfMissing(idsOnPage, ctrl.signal);
 
-        // shape for current tab
+        // Used In = Form title (as in Figma table)
         const rows = activeRespTab === "summary"
           ? pageRows.map(s => ({
               id: s.id,
               userId: s.userId,
               userName: userNameMap[s.userId] || `User ${s.userId}`,
               submittedOn: s.submittedOn,
-              usedIn: "—",
+              usedIn: form?.title || "—",
               email: "—",
             }))
           : pageRows;
@@ -303,11 +280,11 @@ export default function ViewForm() {
     })();
 
     return () => {
-      alive = false;
       ctrl.abort();
+      alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, activeRespTab, respPage, respPageSize, respQ, formKey, layout, userNameMap]);
+  }, [tab, activeRespTab, respPage, respPageSize, respQ, formKey, layout, userNameMap, form?.title]);
 
   /* ---------------- renderers ---------------- */
 
@@ -327,7 +304,9 @@ export default function ViewForm() {
 
       <div className="vf-field">
         <label className="vf-label">Form Visibility</label>
-        <label className="vf-switch">
+
+        {/* Figma toggle (read-only) */}
+        <label className="vf-switch" aria-label="Form visibility">
           <input
             type="checkbox"
             checked={String(form?.status).toLowerCase() === "published"}
@@ -335,6 +314,7 @@ export default function ViewForm() {
           />
           <span aria-hidden />
         </label>
+
         <p className="vf-hint">
           Turn on to allow new workflows to use this form. Turn off to hide it; existing workflows keep working.
         </p>
@@ -343,33 +323,72 @@ export default function ViewForm() {
   );
 
   const renderLayout = () => {
-    // mirror the same normalization used by buildLabelIndex
+    // normalize like before
     const sections = Array.isArray(layout?.sections)
       ? layout.sections
-      : Array.isArray(layout)
-        ? layout
-        : [];
-
-    if (sections.length === 0) return <div className="vf-empty">Not Found</div>;
+      : Array.isArray(layout) ? layout : [];
 
     return (
       <div className="vf-layout">
-        {sections.map((s, si) => (
-          <section key={si} className="vf-sec">
-            <div className="vf-sec-title">{s.title || `Section ${si + 1}`}</div>
-            {(s.fields || []).map((f, fi) => {
-              const label = f.label || f.name || f.fieldId || f.id || `Untitled Question ${fi + 1}`;
-              return (
-                <div key={fi} className="vf-q">
-                  <div className="vf-q-title">
-                    {label}{(f.isRequired || f.required) ? <span className="req">*</span> : null}
-                  </div>
-                  <div className="vf-q-type">{(f.type || "").toString()}</div>
-                </div>
-              );
-            })}
-          </section>
-        ))}
+        {/* LEFT: Palettes */}
+        <aside className="vf-left">
+          <div className="vf-pane">
+            <div className="vf-pane-title">Input Fields</div>
+            <div className="vf-list">
+              <div className="vf-item"><span className="dot" /> Short Text</div>
+              <div className="vf-item"><span className="dot" /> Long Text</div>
+              <div className="vf-item"><span className="dot" /> Date Picker</div>
+              <div className="vf-item"><span className="dot" /> Dropdown</div>
+              <div className="vf-item"><span className="dot" /> File Upload</div>
+              <div className="vf-item"><span className="dot" /> Number</div>
+            </div>
+          </div>
+
+          <div className="vf-pane">
+            <div className="vf-pane-title">UDF Fields</div>
+            <div className="vf-udf-search" style={{ marginBottom: 10 }}>
+              <input placeholder="Search UDF" />
+            </div>
+            <div className="vf-list">
+              <div className="vf-item"><span className="dot" /> Designation</div>
+              <div className="vf-item"><span className="dot" /> Department</div>
+              <div className="vf-item"><span className="dot" /> Location</div>
+              <div className="vf-item"><span className="dot" /> Blood Group</div>
+              <div className="vf-item"><span className="dot" /> Education</div>
+            </div>
+          </div>
+        </aside>
+
+        {/* RIGHT: Header + Sections preview (read-only) */}
+        <section className="vf-right">
+          <div className="vf-formhead">
+            <div className="title">{form?.title || "Form Header"}</div>
+            {form?.description ? <div className="desc">{form.description}</div> : null}
+          </div>
+
+          <div className="vf-secwrap">
+            {sections.length === 0 ? (
+              <div className="vf-empty">Not Found</div>
+            ) : (
+              sections.map((s, si) => (
+                <section key={si} className="vf-sec">
+                  <div className="vf-sec-title">{s.title || `Section ${si + 1}`}</div>
+                  {(s.fields || []).map((f, fi) => {
+                    const label = f.label || f.name || f.fieldId || f.id || `Untitled Question ${fi + 1}`;
+                    return (
+                      <div key={fi} className="vf-q">
+                        <div className="vf-q-title">
+                          {label}{(f.isRequired || f.required) ? <span className="req">*</span> : null}
+                        </div>
+                        <div className="vf-q-type">{(f.type || "").toString()}</div>
+                      </div>
+                    );
+                  })}
+                </section>
+              ))
+            )}
+          </div>
+        </section>
       </div>
     );
   };
@@ -399,8 +418,8 @@ export default function ViewForm() {
           />
           <span aria-hidden>🔍</span>
         </div>
-        <button className="btn ghost" onClick={() => window.alert("Filter UI TBD")}>Filter</button>
-        <button className="btn primary" onClick={() => window.alert("Export API TBD")}>Export to Excel</button>
+        <button className="btn outline-primary pill" onClick={() => window.alert("Filter UI TBD")}>Filter</button>
+        <button className="btn primary pill" onClick={() => window.alert("Export API TBD")}>Export to Excel</button>
       </div>
 
       {activeRespTab === "summary" ? (
@@ -432,7 +451,7 @@ export default function ViewForm() {
                       <td>{r.email || "—"}</td>
                       <td>
                         <button
-                          className="btn small"
+                          className="btn small pill btn-view"
                           onClick={() => { setActiveRespTab("individual"); setSelectedRespId(r.id); }}
                         >
                           View
@@ -457,9 +476,9 @@ export default function ViewForm() {
             </div>
             <div className="grow" />
             <div className="vf-page">
-              <button className="btn small" disabled={respPage <= 1} onClick={() => setRespPage(p => Math.max(1, p - 1))}>‹</button>
+              <button className="btn small pill" disabled={respPage <= 1} onClick={() => setRespPage(p => Math.max(1, p - 1))}>‹</button>
               <span>{respPage} of {respPages}</span>
-              <button className="btn small" disabled={respPage >= respPages} onClick={() => setRespPage(p => Math.min(respPages, p + 1))}>›</button>
+              <button className="btn small pill" disabled={respPage >= respPages} onClick={() => setRespPage(p => Math.min(respPages, p + 1))}>›</button>
             </div>
           </div>
         </>
@@ -484,9 +503,9 @@ export default function ViewForm() {
               ))
             )}
             <div className="vf-mini-pager">
-              <button className="btn small" disabled={respPage <= 1} onClick={() => setRespPage(p => Math.max(1, p - 1))}>‹</button>
+              <button className="btn small pill" disabled={respPage <= 1} onClick={() => setRespPage(p => Math.max(1, p - 1))}>‹</button>
               <span>{respPage} / {respPages}</span>
-              <button className="btn small" disabled={respPage >= respPages} onClick={() => setRespPage(p => Math.min(respPages, p + 1))}>›</button>
+              <button className="btn small pill" disabled={respPage >= respPages} onClick={() => setRespPage(p => Math.min(respPages, p + 1))}>›</button>
             </div>
           </aside>
 
@@ -521,7 +540,6 @@ export default function ViewForm() {
   );
 
   /* ---------------- render root ---------------- */
-
   return (
     <div className="vf-root">
       <div className="vf-tabs" role="tablist" aria-label="View Form Tabs">

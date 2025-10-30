@@ -67,7 +67,8 @@
    height is fixed so all cards line up, regardless of description length.
 */
 .lr-card{
-  width:421px; height:280px;          /* <-- fixed */
+  width:421px;
+   /* height:280px;         */
   border:1px solid #D8D8D8;
   border-radius:12px;
   background:#fff;
@@ -120,7 +121,7 @@
 .lr-primary{
   width:100%; height:40px;
   border:none; border-radius:9px;
-  background:#5B3FFF; color:#fff; font-weight:700; font-size:14px; cursor:pointer;
+  background:#5D38DF; color:#fff; font-weight:700; font-size:14px; cursor:pointer;
 }
 .lr-primary:hover{ background:#4a33cc; }
 
@@ -191,7 +192,7 @@
 }
 .ms-table thead th{
   text-align:left; font-weight:600; font-size:13px; color:#374151;
-  background:#F9FAFB; border-bottom:1px solid var(--border);
+  background:#F0F0F0; border-bottom:1px solid var(--border);
   padding:12px 16px;
 }
 .ms-table tbody td{
