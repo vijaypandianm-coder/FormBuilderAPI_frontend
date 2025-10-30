@@ -1,31 +1,55 @@
-// src/pages/MySubmissions.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ResponseService from "../api/responses";
 import { FormService } from "../api/forms";
-import { AuthService } from "../api/auth";
 import "./learner.css";
 
-function toStr(x) { return x == null ? "" : String(x); }
+const toStr = (x) => (x == null ? "" : String(x));
 
-// Normalize API row
 function mapRow(r) {
   return {
     responseId: r.responseId ?? r.ResponseId ?? r.id ?? r.Id ?? null,
     formKey: r.formKey ?? r.FormKey ?? null,
-    title: r.title ?? r.formTitle ?? r.Title ?? r.FormTitle ?? undefined,
-    description: r.description ?? r.FormDescription ?? r.Description ?? undefined,
-    submittedAt: r.submittedAt ?? r.SubmittedAt ?? r.submitted_on ?? r.SubmittedOn ?? null,
-    userName: r.userName ?? r.UserName ?? undefined,
+    title:
+      r.title ??
+      r.formTitle ??
+      r.Title ??
+      r.FormTitle ??
+      undefined,
+    description:
+      r.description ??
+      r.FormDescription ??
+      r.Description ??
+      undefined,
+    submittedAt:
+      r.submittedAt ??
+      r.SubmittedAt ??
+      r.submitted_on ??
+      r.SubmittedOn ??
+      null,
+    formType:
+      r.formType ??
+      r.FormType ??
+      "External Training Completion",
+    status:
+      r.status ??
+      r.Status ??
+      "Completion Submitted",
   };
 }
 
 export default function MySubmissions() {
+  const nav = useNavigate();
+
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState("");
+  const [type, setType] = useState("ALL");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const nav = useNavigate();
+
+  // pager (client side)
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let alive = true;
@@ -34,34 +58,41 @@ export default function MySubmissions() {
         setLoading(true);
         setErr("");
 
-        // 1) fetch my headers
         const res = await ResponseService.listMy();
         const headers = Array.isArray(res)
           ? res
           : res?.items || res?.Items || res?.data || [];
 
         if (!alive) return;
+
         const mapped = headers.map(mapRow);
 
-        // 2) resolve titles per formKey if missing
-        const missing = [...new Set(mapped
-          .filter(h => !h.title && h.formKey != null)
-          .map(h => h.formKey))];
-
+        // resolve missing titles using form meta
+        const missingKeys = [...new Set(mapped.filter(h => !h.title && h.formKey).map(h => h.formKey))];
         const titleMap = new Map();
-        await Promise.all(missing.map(async (k) => {
-          try {
-            const f = await FormService.get(k);
-            titleMap.set(k, f?.title || f?.Title || `Form ${k}`);
-          } catch {
-            titleMap.set(k, `Form ${k}`);
-          }
-        }));
+        await Promise.all(
+          missingKeys.map(async (k) => {
+            try {
+              const f = await FormService.get(k);
+              titleMap.set(k, f?.title || f?.Title || `Form ${k}`);
+            } catch {
+              titleMap.set(k, `Form ${k}`);
+            }
+          })
+        );
 
         const withTitles = mapped.map(h => ({
           ...h,
           title: h.title ?? titleMap.get(h.formKey) ?? `Form ${h.formKey}`,
         }));
+
+        // newest first
+        withTitles.sort((a, b) => {
+          const ta = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+          const tb = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+          if (tb !== ta) return tb - ta;
+          return toStr(a.title).localeCompare(toStr(b.title));
+        });
 
         setRows(withTitles);
       } catch (e) {
@@ -75,115 +106,168 @@ export default function MySubmissions() {
     return () => { alive = false; };
   }, []);
 
+  // distinct types for the select
+  const types = useMemo(() => {
+    const s = new Set(rows.map(r => r.formType || "External Training Completion"));
+    return ["ALL", ...Array.from(s)];
+  }, [rows]);
+
+  // filter + search
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return rows;
-    return rows.filter((r) =>
-      toStr(r.title).toLowerCase().includes(needle) ||
-      toStr(r.formKey).toLowerCase().includes(needle)
-    );
-  }, [q, rows]);
+    return rows.filter(r => {
+      const passType = type === "ALL" || (r.formType || "").toLowerCase() === type.toLowerCase();
+      const passSearch =
+        !needle ||
+        toStr(r.title).toLowerCase().includes(needle) ||
+        toStr(r.formKey).toLowerCase().includes(needle);
+      return passType && passSearch;
+    });
+  }, [rows, q, type]);
+
+  // pager calculations
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageSafe = Math.min(page, pageCount);
+  const paged = useMemo(() => {
+    const start = (pageSafe - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, pageSafe, pageSize]);
+
+  // reset to page 1 on filters/search change
+  useEffect(() => { setPage(1); }, [q, type, pageSize]);
+
+  // status → pill class
+  const pillClass = (status) => {
+    const s = (status || "").toLowerCase();
+    if (s.includes("approved")) return "tag tag--green";
+    if (s.includes("rejected")) return "tag tag--red";
+    return "tag tag--amber";
+  };
 
   return (
     <div className="learner-shell">
-      {/* Top bar */}
-      <header className="lr-topbar">
-        <div className="lr-left">
-          <div className="lr-app">Form Builder</div>
-          <div className="lr-breadcrumb">My Submission</div>
-        </div>
-        <div className="lr-right learner-toolbar">
-          <div className="lr-search">
-            <span aria-hidden>🔍</span>
-            <input
-              placeholder="Search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
-          <button className="ghost" type="button" onClick={() => alert("Filter panel coming soon")}>
-            Filter
-          </button>
-          <Link className="ghost" to="/learn">Form List</Link>
-          <button
-            className="lr-logout"
-            onClick={() => { AuthService.logout?.(); window.location.assign("/login"); }}
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
-
-      {/* Tabs */}
-      <nav className="lr-tabs" role="tablist">
-        <Link className="lr-tab" to="/learn">Form List</Link>
-        <span className="lr-tab disabled" aria-disabled="true">Mandated Forms</span>
-        <span className="lr-tab active">My Submission</span>
+      {/* Tabs (only) – no big header as requested */}
+      <nav className="lr-tabs" role="tablist" aria-label="Forms">
+        <Link className="lr-tab" role="tab" to="/learn">Self-Service Forms</Link>
+        <span className="lr-tab disabled" role="tab" aria-disabled="true">Mandated Forms</span>
+        <span className="lr-tab active" role="tab" aria-selected="true">My Submission</span>
       </nav>
 
-      {/* Body */}
-      <div className="lr-panel">
-        {loading && <div className="lr-empty">Loading…</div>}
-        {!loading && err && <div className="lr-error">{err}</div>}
-        {!loading && !err && filtered.length === 0 && <div className="lr-empty">No submissions yet.</div>}
-
-        {!loading && !err && filtered.length > 0 && (
-          <div className="lr-table-wrap">
-            <table className="lr-table">
-              <thead>
-                <tr>
-                  <th>Training / Form</th>
-                  <th>Requested On</th>
-                  <th>Completion On</th>
-                  <th>Form Key</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((r) => (
-                  <tr key={`${r.responseId}-${r.formKey}`}>
-                    <td>
-                      <div className="cell-title">{r.title || `Form ${r.formKey}`}</div>
-                      {r.description && <div className="cell-sub">{r.description}</div>}
-                    </td>
-                    <td>{r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "—"}</td>
-                    <td>—{/* completion date can be wired later if/when you persist it */}</td>
-                    <td>{r.formKey ?? "—"}</td>
-                    <td><span className="badge badge-purple">Request Submitted</span></td>
-                    <td className="lr-actions">
-                      <button
-                        className="btn-link"
-                        onClick={() => nav(`/learn/submissions/${encodeURIComponent(r.responseId)}`)}
-                      >
-                        View
-                      </button>
-                      <Link className="btn-link" to={`/forms/${encodeURIComponent(r.formKey || "")}`}>
-                        Submit Again
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* simple pager stub to match figma layout */}
-            <div className="lr-table-footer">
-              <div className="items-per-page">
-                <label>Items per page</label>
-                <select defaultValue="10" disabled>
-                  <option>10</option><option>25</option><option>50</option>
-                </select>
-              </div>
-              <div className="pager">
-                <button disabled>{"<"}</button>
-                <span>1 of 1 pages</span>
-                <button disabled>{">"}</button>
-              </div>
+      {/* Panel with toolbar + table */}
+      <section className="ms-panel">
+        {/* Toolbar */}
+        <div className="ms-toolbar">
+          <div className="ms-left">
+            <label className="vis-hidden" htmlFor="ms-type">Form Type</label>
+            <div className="ms-select">
+              <select
+                id="ms-type"
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+              >
+                {types.map(t => (<option key={t} value={t}>{t === "ALL" ? "External Training Completion" : t}</option>))}
+              </select>
+              <span className="ms-caret" aria-hidden>▾</span>
             </div>
           </div>
+
+          <div className="ms-right">
+            <div className="ms-search">
+              <span aria-hidden>🔍</span>
+              <input
+                placeholder="Search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
+            <button type="button" className="ms-filter" onClick={() => alert("Filter panel coming soon")}>
+              Filter
+            </button>
+          </div>
+        </div>
+
+        {/* Table */}
+        {loading && <div className="lr-empty">Loading…</div>}
+        {!loading && err && <div className="lr-error">{err}</div>}
+        {!loading && !err && filtered.length === 0 && (
+          <div className="lr-empty">No submissions yet.</div>
         )}
-      </div>
+
+        {!loading && !err && filtered.length > 0 && (
+          <>
+            <div className="ms-table-wrap">
+              <table className="ms-table">
+                <thead>
+                  <tr>
+                    <th>Training Name</th>
+                    <th>Submitted On</th>
+                    <th>Form Type</th>
+                    <th>Status</th>
+                    <th className="col-action">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paged.map((r) => (
+                    <tr key={`${r.responseId}-${r.formKey}`}>
+                      <td>
+                        <div className="t-title">{r.title || `Form ${r.formKey}`}</div>
+                      </td>
+                      <td>{r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "—"}</td>
+                      <td>
+                        <span className="pill pill--pink">{r.formType || "External Training Completion"}</span>
+                      </td>
+                      <td>
+                        <span className={pillClass(r.status)}>{r.status || "Completion Submitted"}</span>
+                      </td>
+                      <td className="t-actions">
+                        <button
+                          className="ico-btn"
+                          title="View submission"
+                          onClick={() => nav(`/learn/submissions/${encodeURIComponent(r.responseId)}`)}
+                        >
+                          🗒️
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer / Pagination */}
+            <div className="ms-footer">
+              <div className="ipp">
+                <label>Items per page</label>
+                <select value={pageSize} onChange={(e) => setPageSize(+e.target.value)}>
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+
+              <div className="pager">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={pageSafe <= 1}
+                  aria-label="Previous page"
+                >
+                  ‹
+                </button>
+                <span className="pg-text">
+                  {pageSafe} <span className="muted">of</span> {pageCount} <span className="muted">pages</span>
+                </span>
+                <button
+                  onClick={() => setPage(p => Math.min(pageCount, p + 1))}
+                  disabled={pageSafe >= pageCount}
+                  aria-label="Next page"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }
