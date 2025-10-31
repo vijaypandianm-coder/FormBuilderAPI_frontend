@@ -104,16 +104,18 @@
 
 .pill {
   padding: 4px 10px;
-  border-radius: 12px;
   font-size: 12px;
   font-weight: 600;
+   background: #80D8BC40;
+  color: #2e7d32;
+  border : solid 1px 
 }
 .pill-green {
-  background: #e9f8ef;
+  background: #80D8BC40;
   color: #2e7d32;
 }
 .pill-amber {
-  background: #fff4e5;
+  background: #FEF4E1;
   color: #e65100;
 }
 

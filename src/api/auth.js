@@ -5,8 +5,8 @@ const API_AUTH =
   "http://localhost:5211";
 
 /** storage keys */
-const LS_KEY = "fb_token";   // persisted (Remember me)
-const SS_KEY = "fb_token_ss"; // session-only
+const LS_KEY = "fb_token";
+const SS_KEY = "fb_token_ss";
 
 function saveToken(token, remember) {
   try {
@@ -19,21 +19,15 @@ function saveToken(token, remember) {
     }
   } catch {}
 }
-
 function readToken() {
   try {
     return localStorage.getItem(LS_KEY) || sessionStorage.getItem(SS_KEY) || null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 async function api(path, init = {}) {
   const res = await fetch(`${API_AUTH}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(init.headers || {}),
-    },
+    headers: { "Content-Type": "application/json", ...(init.headers || {}) },
     ...init,
   });
   if (!res.ok) {
@@ -47,61 +41,39 @@ async function api(path, init = {}) {
     e.status = res.status;
     throw e;
   }
-  try {
-    return await res.json();
-  } catch {
-    return null;
-  }
+  try { return await res.json(); } catch { return null; }
 }
 
 export const AuthService = {
-  /** POST /api/auth/login -> saves JWT. */
   async login({ email, password, remember = true }) {
     const data = await api("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
-
     const token =
-      data?.token ||
-      data?.accessToken ||
-      data?.jwt ||
-      data?.data?.token;
-
+      data?.token || data?.accessToken || data?.jwt || data?.data?.token;
     if (!token) throw new Error("Login failed: token not returned");
     saveToken(token, remember);
     return this.getProfile();
   },
 
-  /** Optional register flow; saves token if backend returns one. */
-  async register({ name, email, password }) {
-    const data = await api("/api/auth/register", {
+  // ⬇️ Register expects Username/Email/Password and returns NO token
+  async register({ username, email, password }) {
+    return await api("/api/auth/register", {
       method: "POST",
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({
+        username,         // <-- important: property name must match server
+        email,
+        password,
+      }),
     });
-
-    const token =
-      data?.token ||
-      data?.accessToken ||
-      data?.jwt ||
-      data?.data?.token;
-
-    if (token) saveToken(token, true);
-    return data;
   },
 
-  /** Read the current JWT (if any) */
-  getToken() {
-    return readToken();
-  },
-
-  /** Authorization header helper for other APIs */
+  getToken() { return readToken(); },
   authHeader() {
     const t = readToken();
     return t ? { Authorization: `Bearer ${t}` } : {};
   },
-
-  /** Decode JWT payload (best-effort) */
   getProfile() {
     try {
       const t = readToken();
@@ -122,21 +94,11 @@ export const AuthService = {
           payload?.["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"],
         raw: payload,
       };
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   },
-
-  /** ✅ Restored so AdminDashboard won’t crash */
-  isAuthenticated() {
-    return !!this.getToken();
-  },
-
+  isAuthenticated() { return !!this.getToken(); },
   logout() {
-    try {
-      localStorage.removeItem(LS_KEY);
-      sessionStorage.removeItem(SS_KEY);
-    } catch {}
+    try { localStorage.removeItem(LS_KEY); sessionStorage.removeItem(SS_KEY); } catch {}
   },
 };
 

@@ -59,15 +59,13 @@
 .vf-label{ font-weight:600; color:#374151; }
 .vf-input, .vf-field textarea{
   background:#FAFAFB; border:1px solid var(--line-strong);
-  border-radius:8px; padding:10px 12px; color:var(--ink);
+  border-radius:8px; padding:10px 12px; color:#111827;
 }
 .vf-field textarea{ resize:vertical; }
 
 /* Toggle (Figma) */
 .vf-switch{ display:inline-flex; align-items:center; gap:10px; }
-.vf-switch input{
-  position:absolute; opacity:0; pointer-events:none;
-}
+.vf-switch input{ position:absolute; opacity:0; pointer-events:none; }
 .vf-switch span{
   width:44px; height:24px; background:#D1D5DB; border-radius:999px;
   position:relative; display:inline-block; vertical-align:middle; transition:.18s ease;
@@ -83,16 +81,16 @@
 
 .vf-hint{ color:var(--muted); margin-top:6px; }
 
-/* ---------- FORM LAYOUT (Figma) ---------- */
+/* ---------- FORM LAYOUT (CreateForm look) ---------- */
 
-/* two-column: left palette / right preview */
+/* two-column: left palette / right canvas */
 .vf-layout{
   display:grid;
   grid-template-columns: 332px 1fr;
   gap:16px;
 }
 
-/* left palette column */
+/* LEFT: palette */
 .vf-left{ display:flex; flex-direction:column; gap:14px; }
 .vf-pane{
   background:#FFF; border:1px solid var(--line); border-radius:12px;
@@ -112,40 +110,50 @@
   width:18px; height:18px; border-radius:6px; background:#E5E7EB; display:inline-block;
 }
 
-/* right preview column: fixed width like Figma (916px) */
+/* RIGHT: keep canvas max width 916 like builder */
 .vf-right{ min-width:0; }
 .vf-right > *{ max-width:916px; margin-left:auto; margin-right:auto; }
 
-.vf-formhead{
-  background:#FFFFFF; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow);
-  padding:16px; margin-bottom:12px; position:relative;
+/* header card at top (same as CreateForm) */
+.vf-formhead.vfl{
+  position:relative;
+  background:#FFFFFF; border:1px solid var(--line); border-radius:12px;
+  box-shadow:var(--shadow); padding:16px; margin-bottom:14px;
 }
-.vf-formhead::before{
+.vf-formhead.vfl::before{
   content:""; position:absolute; left:0; right:0; top:0; height:6px;
   background:var(--primary); border-radius:12px 12px 0 0;
 }
-.vf-formhead .title{ font-weight:700; }
-.vf-formhead .desc{ color:#6B7280; margin-top:6px; }
+.vf-formhead.vfl .title{ font-weight:700; }
+.vf-formhead.vfl .desc{ color:#6B7280; margin-top:6px; }
 
-/* section + questions */
-.vf-secwrap{
-  background:#FFFFFF; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow);
-  padding:16px;
+/* SECTION CARD — purple top rule like CreateForm */
+.vfl-sec{
+  background:#FFFFFF; border:1px solid var(--line); border-radius:12px;
+  box-shadow:var(--shadow); overflow:hidden; margin-bottom:16px;
 }
-.vf-sec + .vf-sec{ margin-top:16px; }
-.vf-sec-title{
-  font-weight:700; color:var(--primary);
-  border-bottom:2px solid var(--primary);
-  padding-bottom:6px; margin-bottom:10px;
+.vfl-sec-cap{ height:6px; background:var(--primary); }
+.vfl-sec-head{ padding:12px 16px 4px 16px; }
+.vfl-sec-title{
+  font-weight:700; color:#4C3AD6;
+  border-bottom:1px solid #E7E4FF;
+  padding-bottom:6px;
 }
-.vf-q{
-  padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#FFFFFF; margin:8px 0;
-}
-.vf-q-title{ font-weight:600; margin-bottom:2px; color:#374151; }
-.vf-q-title .req{ color:#DC2626; margin-left:6px; }
-.vf-q-type{ font-size:12px; color:#6B7280; }
 
-/* ---------- RESPONSES ---------- */
+/* rows inside section */
+.vfl-sec-body{ padding:12px 12px 16px 12px; }
+.vfl-row{
+  margin:8px 0;
+  border-radius:10px;
+  background:#FFFFFF;
+  border:1px solid var(--line);
+}
+.vfl-row-inner{ padding:12px 14px; }
+.vfl-row-title{ font-weight:600; color:#374151; margin-bottom:2px; }
+.vfl-row-title .req{ color:#DC2626; margin-left:6px; }
+.vfl-row-sub{ font-size:12px; color:#6B7280; }
+
+/* ---------- RESPONSES (unchanged) ---------- */
 .vf-resp .vf-resp-tabs{
   display:flex; align-items:center; gap:10px;
   padding:12px; background:#F7F7FF; border:1px solid #E6E8FF;
@@ -178,16 +186,6 @@
 .btn.outline-primary{ color:#5D38DF; border-color:#DADCF9; background:#FFF; }
 .btn.outline-primary:hover{ border-color:var(--primary); color:var(--primary); }
 
-/* View button: pill + purple outline per Figma (#5D38DF) */
-.btn-view{
-  color:#5D38DF;
-  border-color:#DADCF9;
-  background:#FFFFFF;
-  min-width:63px; /* matches figma width when text=View */
-  padding-left:16px; padding-right:16px;
-}
-.btn-view:hover{ border-color:var(--primary); color:var(--primary); }
-
 /* Table */
 .vf-table-wrap{ background:#FFF; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
 .vf-table{ width:100%; border-collapse:separate; border-spacing:0; }
@@ -211,7 +209,7 @@
 }
 .vf-page{ display:flex; align-items:center; gap:10px; }
 
-/* Individual view columns */
+/* Individual view */
 .vf-indiv{ display:grid; grid-template-columns: 344px 1fr; gap:16px; }
 .vf-indiv-list{
   background:#FFFFFF; border:1px solid var(--line); border-radius:12px;

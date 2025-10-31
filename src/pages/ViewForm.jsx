@@ -249,7 +249,7 @@ export default function ViewForm() {
         const idsOnPage = [...new Set(pageRows.map(r => r.userId).filter(v => v != null))];
         fetchUsernamesIfMissing(idsOnPage, ctrl.signal);
 
-        // Used In = Form title (as in Figma table)
+        // Used In = Form title
         const rows = activeRespTab === "summary"
           ? pageRows.map(s => ({
               id: s.id,
@@ -322,15 +322,15 @@ export default function ViewForm() {
     </div>
   );
 
+  /* ---------- UPDATED: Form Layout to match Create Form ---------- */
   const renderLayout = () => {
-    // normalize like before
     const sections = Array.isArray(layout?.sections)
       ? layout.sections
       : Array.isArray(layout) ? layout : [];
 
     return (
       <div className="vf-layout">
-        {/* LEFT: Palettes */}
+        {/* LEFT: palette (read-only) */}
         <aside className="vf-left">
           <div className="vf-pane">
             <div className="vf-pane-title">Input Fields</div>
@@ -344,7 +344,7 @@ export default function ViewForm() {
             </div>
           </div>
 
-          <div className="vf-pane">
+          {/* <div className="vf-pane">
             <div className="vf-pane-title">UDF Fields</div>
             <div className="vf-udf-search" style={{ marginBottom: 10 }}>
               <input placeholder="Search UDF" />
@@ -356,38 +356,46 @@ export default function ViewForm() {
               <div className="vf-item"><span className="dot" /> Blood Group</div>
               <div className="vf-item"><span className="dot" /> Education</div>
             </div>
-          </div>
+          </div> */}
         </aside>
 
-        {/* RIGHT: Header + Sections preview (read-only) */}
+        {/* RIGHT: header card + section cards with purple cap, like builder */}
         <section className="vf-right">
-          <div className="vf-formhead">
+          <div className="vf-formhead vfl">
             <div className="title">{form?.title || "Form Header"}</div>
             {form?.description ? <div className="desc">{form.description}</div> : null}
           </div>
 
-          <div className="vf-secwrap">
-            {sections.length === 0 ? (
-              <div className="vf-empty">Not Found</div>
-            ) : (
-              sections.map((s, si) => (
-                <section key={si} className="vf-sec">
-                  <div className="vf-sec-title">{s.title || `Section ${si + 1}`}</div>
+          {sections.length === 0 ? (
+            <div className="vf-empty">Not Found</div>
+          ) : (
+            sections.map((s, si) => (
+              <section key={si} className="vfl-sec">
+               
+               
+
+                
                   {(s.fields || []).map((f, fi) => {
-                    const label = f.label || f.name || f.fieldId || f.id || `Untitled Question ${fi + 1}`;
+                    const label =
+                      f.label || f.name || f.fieldId || f.id || `Untitled Question ${fi + 1}`;
+                    const typeTxt = (f.type || "").toString().toLowerCase();
+
                     return (
-                      <div key={fi} className="vf-q">
-                        <div className="vf-q-title">
-                          {label}{(f.isRequired || f.required) ? <span className="req">*</span> : null}
+                      <div key={fi} className="vfl-row">
+                        <div className="vfl-row-inner">
+                          <div className="vfl-row-title">
+                            {label}
+                            {(f.isRequired || f.required) ? <span className="req">*</span> : null}
+                          </div>
+                          <div className="vfl-row-sub">{typeTxt}</div>
                         </div>
-                        <div className="vf-q-type">{(f.type || "").toString()}</div>
                       </div>
                     );
                   })}
-                </section>
-              ))
-            )}
-          </div>
+                
+              </section>
+            ))
+          )}
         </section>
       </div>
     );
@@ -422,6 +430,7 @@ export default function ViewForm() {
         <button className="btn primary pill" onClick={() => window.alert("Export API TBD")}>Export to Excel</button>
       </div>
 
+      {/* unchanged table & detail views */}
       {activeRespTab === "summary" ? (
         <>
           <div className="vf-table-wrap">

@@ -7,16 +7,23 @@ import duplicate from "./../assets/duplicate.png";
 import Trash from "./../assets/Trash.png";
 import { AuthService } from "../api/auth";
 import { FormService } from "../api/forms";
+import short from "../assets/short.png";
+import long from "../assets/long.png";
+import date from "../assets/date.png";
+import dropdown from "../assets/dropdown.png";
+import file from "../assets/files.png";
+import number from "../assets/number.png";
+  
 
 const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 const FIELD_TYPES = [
-  { id: "short", label: "Short Text", placeholder: "Short Text (Up to 100 Characters)" },
-  { id: "long", label: "Long Text", placeholder: "Long Text (Up to 500 Characters)" },
-  { id: "date", label: "Date Picker", placeholder: "DD/MM/YYYY" },
-  { id: "dropdown", label: "Dropdown", placeholder: "Option 1" },
-  { id: "file", label: "File Upload", placeholder: "Upload your file" },
-  { id: "number", label: "Number", placeholder: "Numeric value" },
+  { id: "short", label: "Short Text", placeholder: "Short Text (Up to 100 Characters)", icon: short },
+  { id: "long", label: "Long Text", placeholder: "Long Text (Up to 500 Characters)", icon: long },
+  { id: "date", label: "Date Picker", placeholder: "DD/MM/YYYY", icon: date },
+  { id: "dropdown", label: "Dropdown", placeholder: "Option 1" , icon: dropdown},
+  { id: "file", label: "File Upload", placeholder: "Upload your file" , icon: file},
+  { id: "number", label: "Number", placeholder: "Numeric value" , icon: number},
 ];
 
 function mapField(q) {

@@ -2,10 +2,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FormService } from "../api/forms";
-import { AuthService } from "../api/auth";
 import "./learner.css";
-import search from "../assets/Search.png"
-
+import search from "../assets/Search.png";
 
 function norm(form) {
   const status = (form?.status ?? form?.Status ?? "").toString();
@@ -80,9 +78,6 @@ export default function LearnerForms() {
 
   return (
     <div className="learner-shell">
-      {/* ⬇️ No top header here (removed as requested) */}
-
-      {/* Tabs row */}
       <nav className="lr-tabs" role="tablist" aria-label="Forms">
         <span className="lr-tab active" role="tab" aria-selected="true">
           Self-Service Forms
@@ -95,7 +90,6 @@ export default function LearnerForms() {
         </Link>
       </nav>
 
-      {/* Toolbar row: banner (left) + search/filter (right) */}
       <div className="lr-toolbar">
         <div className="lr-banner">
           <span className="lr-info-icon" aria-hidden>ℹ️</span>
@@ -114,7 +108,6 @@ export default function LearnerForms() {
         </div>
       </div>
 
-      {/* Cards grid */}
       <section className="lr-grid">
         {loading && (
           <>
@@ -134,20 +127,13 @@ export default function LearnerForms() {
           <article key={f.formKey} className="lr-card" aria-label={f.title}>
             <div className="lr-card-body">
               <h3 className="lr-card-title">{f.title}</h3>
-
-              {/* 2-line clamp; uniform block height */}
               <p className="lr-card-desc">{f.description || "—"}</p>
-
               <div className="lr-meta-row">
                 <span className="lr-meta-k">Published Date:</span>
                 <span className="lr-meta-v">
                   {f.publishedAt ? new Date(f.publishedAt).toLocaleDateString() : "—"}
                 </span>
               </div>
-
-              {/* <div className="lr-badges">
-                <span className="pill pill-green">Training Needs Form</span>
-              </div> */}
             </div>
 
             <div className="lr-card-cta">

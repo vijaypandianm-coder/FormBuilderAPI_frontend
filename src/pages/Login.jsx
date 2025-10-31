@@ -21,9 +21,7 @@ export default function Login() {
       setErr("");
       await AuthService.login({ email, password, remember });
 
-      // route by role (Admin -> dashboard, else -> learner list)
-      const role =
-        AuthService.getProfile()?.role?.toString() || "";
+      const role = AuthService.getProfile()?.role?.toString() || "";
       if (role.toLowerCase() === "admin") {
         nav("/", { replace: true });
       } else {
@@ -60,7 +58,7 @@ export default function Login() {
               <span className="icon" aria-hidden>👤</span>
               <input
                 type="email"
-                placeholder="Username or email"
+                placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

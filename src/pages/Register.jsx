@@ -7,32 +7,25 @@ import "./auth.css";
 export default function Register() {
   const nav = useNavigate();
 
-  const [name, setName] = useState("");
+  const [username, setUsername] = useState(""); // <-- API expects Username
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
-  const [pw2, setPw2] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
   async function onSubmit(e) {
     e.preventDefault();
-    if (pw !== pw2) {
-      setErr("Passwords do not match");
-      return;
-    }
     try {
       setLoading(true);
       setErr("");
-      await AuthService.register({ name, email, password: pw });
-      // either autologin (if token returned) or redirect to login with message
-      if (AuthService.getToken?.()) {
-        // decide path by role
-        const role = AuthService.getProfile()?.role?.toString() || "";
-        if (role.toLowerCase() === "admin") nav("/", { replace: true });
-        else nav("/learn", { replace: true });
-      } else {
-        nav("/login", { replace: true, state: { msg: "Account created. Please sign in." } });
-      }
+      // API needs { Username, Email, Password }
+      await AuthService.register({ username, email, password: pw });
+
+      // No token is returned by your /register -> send user to login
+      nav("/login", {
+        replace: true,
+        state: { msg: "Account created. Please sign in." },
+      });
     } catch (ex) {
       setErr(ex?.message || "Registration failed");
     } finally {
@@ -61,9 +54,9 @@ export default function Register() {
               <span className="icon" aria-hidden>🧑</span>
               <input
                 type="text"
-                placeholder="Full name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
               />
             </label>
@@ -86,18 +79,6 @@ export default function Register() {
                 placeholder="Password"
                 value={pw}
                 onChange={(e) => setPw(e.target.value)}
-                required
-                minLength={6}
-              />
-            </label>
-
-            <label className="auth-input">
-              <span className="icon" aria-hidden>🔒</span>
-              <input
-                type="password"
-                placeholder="Confirm password"
-                value={pw2}
-                onChange={(e) => setPw2(e.target.value)}
                 required
                 minLength={6}
               />
