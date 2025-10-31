@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:watch": "vitest --watch",
+    "test:cov": "vitest run --coverage"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -19,7 +23,15 @@
     "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^5.4.10"
+    "@vitest/coverage-v8": "^4.0.5",
+    "jsdom": "^27.0.1",
+    "msw": "^2.11.6",
+    "vite": "^5.4.10",
+    "vitest": "^4.0.5",
+    "whatwg-fetch": "^3.6.20"
   }
 }
