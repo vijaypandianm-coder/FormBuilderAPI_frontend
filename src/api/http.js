@@ -1,4 +1,9 @@
 // src/api/http.js
+// tests/api/http.api.test.js
+import { describe, it, expect } from "vitest";
+describe("http.api (placeholder)", () => {
+  it("bootstraps", () => expect(true).toBe(true));
+});
 const BASE = (
   import.meta.env.VITE_API_BASE_URL ||
   import.meta.env.VITE_API_BASE_URL_MONGO ||

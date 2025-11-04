@@ -85,7 +85,7 @@ export default function AdminFormCard({
       </div>
 
       <div className="fc-ft">
-        {isPublished ? <span className="pill pill-green">Published</span> : <span className="pill pill-amber">Draft</span>}
+        {isPublished ? <span className="pill pill-green" style={{border:"solid 1px #3AB876",color:"#3AB876",backgroundColor:"#80D8BC40"}}>Published</span> : <span className="pill pill-amber" style={{border:"solid 1px #F6A609",color:"#F6A609",backgroundColor:"#FEF4E1"}}>Draft</span>}
         <button className="btn primary" onClick={() => onView(form)}>
           View Responses
         </button>

@@ -4,7 +4,12 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { FormService } from "../api/forms";
 import { ResponsesApi } from "../api/responses";
 import "./ViewForm.css";
-
+import short from "../assets/short.png";
+import long from "../assets/long.png";
+import date from "../assets/date.png";
+import dropdown from "../assets/dropdown.png";
+import file from "../assets/files.png";
+import number from "../assets/number.png";
 const useQuery = () => new URLSearchParams(useLocation().search);
 
 export default function ViewForm() {
@@ -287,6 +292,14 @@ export default function ViewForm() {
   }, [tab, activeRespTab, respPage, respPageSize, respQ, formKey, layout, userNameMap, form?.title]);
 
   /* ---------------- renderers ---------------- */
+const FIELD_TYPES = [
+  { id: "short", label: "Short Text", placeholder: "Short Text (Up to 100 Characters)", icon: short },
+  { id: "long", label: "Long Text", placeholder: "Long Text (Up to 500 Characters)", icon: long },
+  { id: "date", label: "Date Picker", placeholder: "DD/MM/YYYY", icon: date },
+  { id: "dropdown", label: "Dropdown", placeholder: "Option 1" , icon: dropdown},
+  { id: "file", label: "File Upload", placeholder: "Upload your file" , icon: file},
+  { id: "number", label: "Number", placeholder: "Numeric value" , icon: number},
+];
 
   const renderConfig = () => (
     <div className="vf-card">
@@ -335,12 +348,12 @@ export default function ViewForm() {
           <div className="vf-pane">
             <div className="vf-pane-title">Input Fields</div>
             <div className="vf-list">
-              <div className="vf-item"><span className="dot" /> Short Text</div>
-              <div className="vf-item"><span className="dot" /> Long Text</div>
-              <div className="vf-item"><span className="dot" /> Date Picker</div>
-              <div className="vf-item"><span className="dot" /> Dropdown</div>
-              <div className="vf-item"><span className="dot" /> File Upload</div>
-              <div className="vf-item"><span className="dot" /> Number</div>
+              <div className="vf-item"><img src={short} style={{height:"40px",width:"40px",borderRadius:"5.13px",marginRight:"8px"}}  alt="Short Text" /> Short Text</div>
+              <div className="vf-item"><img src={long} style={{height:"40px",width:"40px",borderRadius:"5.13px",marginRight:"8px"}}  alt="Long Text" />Long Text</div>
+              <div className="vf-item"><img src={date} style={{height:"40px",width:"40px",borderRadius:"5.13px",marginRight:"8px"}}  alt="Date Picker" /> Date Picker</div>
+              <div className="vf-item"><img src={dropdown} style={{height:"40px",width:"40px",borderRadius:"5.13px",marginRight:"8px"}}  alt="Dropdown" />Dropdown</div>
+              <div className="vf-item"><img src={file} style={{height:"40px",width:"40px",borderRadius:"5.13px",marginRight:"8px"}}  alt="File Upload" />File Upload</div>
+              <div className="vf-item"><img src={number} style={{height:"40px",width:"40px",borderRadius:"5.13px",marginRight:"8px"}}  alt="File Upload" /> Number</div>
             </div>
           </div>
 

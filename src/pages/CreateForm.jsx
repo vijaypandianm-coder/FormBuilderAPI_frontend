@@ -260,7 +260,7 @@ export default function CreateForm() {
           </div>
         );
       default:
-        return <input className="q-preview" placeholder={ph(q.type)} disabled />;
+        return <input className="q-preview"  style={{height:"64px",backgroundColor:"#F3F2F3",border:"1px solid #D8D8D8"}} placeholder={ph(q.type)} disabled />;
     }
   };
 
@@ -445,7 +445,8 @@ export default function CreateForm() {
                   {FIELD_TYPES.map((f, i) => (
                     <Draggable key={f.id} draggableId={f.id} index={i}>
                       {(p) => (
-                        <div className="tile" ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}>
+                        <div className="tile" ref={p.innerRef}  {...p.draggableProps} {...p.dragHandleProps}>
+                          <img src={f.icon} alt={f.label} style={{height:"40px",width:"40px",borderRadius:"5.13px",marginRight:"8px"}} />
                           {f.label}
                         </div>
                       )}

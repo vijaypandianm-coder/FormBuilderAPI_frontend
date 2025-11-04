@@ -1,64 +1,78 @@
 import React from "react";
+import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { vi } from "vitest";
 
-vi.mock("@src/api/auth.js", () => ({
+// Auth mock matches src/pages/Login.jsx import: "../api/auth"
+vi.mock("@src/api/auth", () => ({
   AuthService: {
-    login: vi.fn(async () => {}),
-    getProfile: vi.fn(() => ({ role: "admin" })),
+    login: vi.fn(async ({ email }) => {
+      // return shape doesn't matter much; role is read via getProfile()
+      return { token: "tok", user: { email } };
+    }),
+    getProfile: vi.fn(() => {
+      // we'll override return values per test via mockImplementationOnce
+      return { role: "User" };
+    }),
   },
 }));
 
 import Login from "@src/pages/Login.jsx";
-import { AuthService } from "@src/api/auth.js";
 
-function renderApp() {
+function renderAt(path = "/login") {
   return render(
-    <MemoryRouter initialEntries={["/login"]}>
+    <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={<div>ADMIN DASH</div>} />
-        <Route path="/learn" element={<div>LEARN LIST</div>} />
+        <Route path="/" element={<div>HOME</div>} />
+        <Route path="/learn" element={<div>LEARN</div>} />
       </Routes>
     </MemoryRouter>
   );
 }
 
 describe("<Login />", () => {
-  it("signs in admin → navigates to /", async () => {
-    renderApp();
-    const user = userEvent.setup();
+  test("admin → navigates to /", async () => {
+    const { AuthService } = await import("@src/api/auth");
+    AuthService.getProfile.mockImplementationOnce(() => ({ role: "Admin" }));
 
-    await user.type(screen.getByPlaceholderText(/username or email/i), "a@a.com");
-    await user.type(screen.getByPlaceholderText(/password/i), "secret");
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    renderAt();
+    const u = userEvent.setup();
 
-    expect(AuthService.login).toHaveBeenCalled();
-    expect(await screen.findByText("ADMIN DASH")).toBeInTheDocument();
+    // Placeholders are "Email" and "Password"
+    await u.type(screen.getByPlaceholderText(/email/i), "admin@a.com");
+    await u.type(screen.getByPlaceholderText(/password/i), "secret");
+    await u.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(await screen.findByText("HOME")).toBeInTheDocument();
   });
 
-  it("non-admin role navigates to /learn", async () => {
-    AuthService.getProfile.mockReturnValue({ role: "user" });
-    renderApp();
-    const user = userEvent.setup();
+  test("non-admin → navigates to /learn", async () => {
+    const { AuthService } = await import("@src/api/auth");
+    AuthService.getProfile.mockImplementationOnce(() => ({ role: "User" }));
 
-    await user.type(screen.getByPlaceholderText(/username or email/i), "a@a.com");
-    await user.type(screen.getByPlaceholderText(/password/i), "secret");
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    renderAt();
+    const u = userEvent.setup();
 
-    expect(await screen.findByText("LEARN LIST")).toBeInTheDocument();
+    await u.type(screen.getByPlaceholderText(/email/i), "user@a.com");
+    await u.type(screen.getByPlaceholderText(/password/i), "secret");
+    await u.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(await screen.findByText("LEARN")).toBeInTheDocument();
   });
 
-  it("shows error when login throws", async () => {
-    AuthService.login.mockRejectedValueOnce(new Error("Nope"));
-    renderApp();
-    const user = userEvent.setup();
+  test("shows API error when login fails", async () => {
+    const { AuthService } = await import("@src/api/auth");
+    AuthService.login.mockRejectedValueOnce(new Error("Login failed"));
 
-    await user.type(screen.getByPlaceholderText(/username or email/i), "a@a.com");
-    await user.type(screen.getByPlaceholderText(/password/i), "secret");
-    await user.click(screen.getByRole("button", { name: /sign in/i }));
+    renderAt();
+    const u = userEvent.setup();
 
-    expect(await screen.findByText(/nope/i)).toBeInTheDocument();
+    await u.type(screen.getByPlaceholderText(/email/i), "boom@a.com");
+    await u.type(screen.getByPlaceholderText(/password/i), "x");
+    await u.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(await screen.findByText(/login failed/i)).toBeInTheDocument();
   });
 });

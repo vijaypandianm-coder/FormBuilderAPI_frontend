@@ -5,7 +5,7 @@ import { FormService } from "../api/forms";
 import { apiFetch } from "../api/http";
 import "./PreviewForm.css";   // reuse pretty visuals
 import "./learner.css";       // errors etc.
-
+import File_Upload from "../assets/File_Upload.png";
 /* ---------------- helpers ---------------- */
 
 const isMultiChoice = (t = "") =>
@@ -287,11 +287,12 @@ export default function FormSubmissionPage() {
               {f.label} {req && <span className="req">*</span>}
             </div>
             {f.helpText && <div className="pf-qdesc">{f.helpText}</div>}
-            <div className="pf-upload" aria-label={f.label}>
-              <div className="pf-upload-icon" />
+            <div className="pf-upload" style={{ border: "1px dashed grey", padding: "0 !important", height: "148px" }} aria-label={f.label}>
+              
               <div className="pf-upload-text">
+                <img src={File_Upload} style={{width:"87.5px",height:"70px"}} className="pf-upload-icon" />
                 <label className="pf-file-trigger">
-                  {chosen ? <span className="chosen">{chosen}</span> : <>Drop file or <span className="link">Browse</span></>}
+                  {chosen ? <span className="chosen">{chosen}</span> : <span style={{fontWeight:"400"}}>Drop file or <span className="link">Browse</span></span>}
                   <input type="file" accept={accept} onChange={onChangeFile(f)} />
                 </label>
                 <div className="pf-upload-hint">{hint}</div>
