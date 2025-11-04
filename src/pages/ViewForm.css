@@ -256,3 +256,44 @@
 .vf-alert{ background:#FEF2F2; color:#B91C1C; border:1px solid #FECACA; border-radius:10px; padding:10px 12px; margin-bottom:12px; }
 .vf-empty{ color:var(--muted); padding:20px; text-align:center; }
 .vf-skel{ color:var(--muted); padding:24px; }
+/* Figma-style pager layout – used on Learner, My Submissions, Admin dashboard */
+.vf-pager {
+  display: flex;
+  align-items: center;
+  padding: 16px 24px;
+  border-top: 1px solid #eee;
+  font-size: 14px;
+}
+
+.vf-ipp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vf-ipp select {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+}
+
+/* spacer between left & right */
+.vf-pager .grow {
+  flex: 1;
+}
+
+/* page text + arrows on the far right */
+.vf-page {
+  margin-left: auto;        /* pushes it to the right edge */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vf-page .btn.small.pill {
+  min-width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  padding: 0 8px;
+}

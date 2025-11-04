@@ -1,10 +1,11 @@
+// src/pages/MySubmissions.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ResponseService from "../api/responses";
 import { FormService } from "../api/forms";
 import "./learner.css";
-import search from "../assets/Search.png"
-import view from "../assets/ViewSub.png"
+import view from "../assets/ViewSub.png";
+import search from "../assets/Search.png";
 
 const toStr = (x) => (x == null ? "" : String(x));
 
@@ -49,7 +50,7 @@ export default function MySubmissions() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  // pager (client side)
+  // client-side pager
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
 
@@ -60,6 +61,7 @@ export default function MySubmissions() {
         setLoading(true);
         setErr("");
 
+        // fetch ALL submissions once (no server-side paging)
         const res = await ResponseService.listMy();
         const headers = Array.isArray(res)
           ? res
@@ -70,7 +72,13 @@ export default function MySubmissions() {
         const mapped = headers.map(mapRow);
 
         // resolve missing titles using form meta
-        const missingKeys = [...new Set(mapped.filter(h => !h.title && h.formKey).map(h => h.formKey))];
+        const missingKeys = [
+          ...new Set(
+            mapped
+              .filter((h) => !h.title && h.formKey)
+              .map((h) => h.formKey)
+          ),
+        ];
         const titleMap = new Map();
         await Promise.all(
           missingKeys.map(async (k) => {
@@ -83,7 +91,7 @@ export default function MySubmissions() {
           })
         );
 
-        const withTitles = mapped.map(h => ({
+        const withTitles = mapped.map((h) => ({
           ...h,
           title: h.title ?? titleMap.get(h.formKey) ?? `Form ${h.formKey}`,
         }));
@@ -105,20 +113,26 @@ export default function MySubmissions() {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // distinct types for the select
   const types = useMemo(() => {
-    const s = new Set(rows.map(r => r.formType || "External Training Completion"));
+    const s = new Set(
+      rows.map((r) => r.formType || "External Training Completion")
+    );
     return ["ALL", ...Array.from(s)];
   }, [rows]);
 
-  // filter + search
+  // filter + search (client-side)
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return rows.filter(r => {
-      const passType = type === "ALL" || (r.formType || "").toLowerCase() === type.toLowerCase();
+    return rows.filter((r) => {
+      const passType =
+        type === "ALL" ||
+        (r.formType || "").toLowerCase() === type.toLowerCase();
       const passSearch =
         !needle ||
         toStr(r.title).toLowerCase().includes(needle) ||
@@ -127,18 +141,24 @@ export default function MySubmissions() {
     });
   }, [rows, q, type]);
 
-  // pager calculations
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  // pagination math (client-side)
+  const totalItems = filtered.length;
+  const pageCount = Math.max(1, Math.ceil(totalItems / pageSize));
   const pageSafe = Math.min(page, pageCount);
-  const paged = useMemo(() => {
-    const start = (pageSafe - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, pageSafe, pageSize]);
 
-  // reset to page 1 on filters/search change
-  useEffect(() => { setPage(1); }, [q, type, pageSize]);
+  const startIndex = (pageSafe - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
 
-  // status → pill class
+  const displayed = useMemo(
+    () => filtered.slice(startIndex, endIndex),
+    [filtered, startIndex, endIndex]
+  );
+
+  // reset to page 1 on filters/search/pageSize change
+  useEffect(() => {
+    setPage(1);
+  }, [q, type, pageSize]);
+
   const pillClass = (status) => {
     const s = (status || "").toLowerCase();
     if (s.includes("approved")) return "tag tag--green";
@@ -148,11 +168,17 @@ export default function MySubmissions() {
 
   return (
     <div className="learner-shell">
-      {/* Tabs (only) – no big header as requested */}
+      {/* Tabs */}
       <nav className="lr-tabs" role="tablist" aria-label="Forms">
-        <Link className="lr-tab" role="tab" to="/learn">Self-Service Forms</Link>
-        <span className="lr-tab disabled" role="tab" aria-disabled="true">Mandated Forms</span>
-        <span className="lr-tab active" role="tab" aria-selected="true">My Submission</span>
+        <Link className="lr-tab" role="tab" to="/learn">
+          Self-Service Forms
+        </Link>
+        <span className="lr-tab disabled" role="tab" aria-disabled="true">
+          Mandated Forms
+        </span>
+        <span className="lr-tab active" role="tab" aria-selected="true">
+          My Submission
+        </span>
       </nav>
 
       {/* Panel with toolbar + table */}
@@ -160,29 +186,43 @@ export default function MySubmissions() {
         {/* Toolbar */}
         <div className="ms-toolbar">
           <div className="ms-left">
-            <label className="vis-hidden" htmlFor="ms-type">Form Type</label>
+            <label className="vis-hidden" htmlFor="ms-type">
+              Form Type
+            </label>
             <div className="ms-select">
               <select
                 id="ms-type"
                 value={type}
                 onChange={(e) => setType(e.target.value)}
               >
-                {types.map(t => (<option key={t} value={t}>{t === "ALL" ? "External Training Completion" : t}</option>))}
+                {types.map((t) => (
+                  <option key={t} value={t}>
+                    {t === "ALL" ? "External Training Completion" : t}
+                  </option>
+                ))}
               </select>
-              <span className="ms-caret" aria-hidden>▾</span>
+              <span className="ms-caret" aria-hidden>
+                ▾
+              </span>
             </div>
           </div>
 
           <div className="ms-right">
             <div className="ms-search">
-              <span aria-hidden>🔍</span>
+              <span aria-hidden>
+                <img src={search} alt="" style={{ width: 20, height: 20 }} />
+              </span>
               <input
                 placeholder="Search"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
               />
             </div>
-            <button type="button" className="ms-filter" onClick={() => alert("Filter panel coming soon")}>
+            <button
+              type="button"
+              className="ms-filter"
+              onClick={() => alert("Filter panel coming soon")}
+            >
               Filter
             </button>
           </div>
@@ -191,11 +231,11 @@ export default function MySubmissions() {
         {/* Table */}
         {loading && <div className="lr-empty">Loading…</div>}
         {!loading && err && <div className="lr-error">{err}</div>}
-        {!loading && !err && filtered.length === 0 && (
+        {!loading && !err && displayed.length === 0 && (
           <div className="lr-empty">No submissions yet.</div>
         )}
 
-        {!loading && !err && filtered.length > 0 && (
+        {!loading && !err && displayed.length > 0 && (
           <>
             <div className="ms-table-wrap">
               <table className="ms-table">
@@ -209,25 +249,45 @@ export default function MySubmissions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paged.map((r) => (
+                  {displayed.map((r) => (
                     <tr key={`${r.responseId}-${r.formKey}`}>
                       <td>
-                        <div className="t-title">{r.title || `Form ${r.formKey}`}</div>
-                      </td>
-                      <td>{r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "—"}</td>
-                      <td>
-                        <span className="pill pill--pink">{r.formType || "External Training Completion"}</span>
+                        <div className="t-title">
+                          {r.title || `Form ${r.formKey}`}
+                        </div>
                       </td>
                       <td>
-                        <span className={pillClass(r.status)}>{r.status || "Completion Submitted"}</span>
+                        {r.submittedAt
+                          ? new Date(r.submittedAt).toLocaleString()
+                          : "—"}
+                      </td>
+                      <td>
+                        <span className="pill pill--pink">
+                          {r.formType || "External Training Completion"}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={pillClass(r.status)}>
+                          {r.status || "Completion Submitted"}
+                        </span>
                       </td>
                       <td className="t-actions">
                         <button
                           className="ico-btn"
                           title="View submission"
-                          onClick={() => nav(`/learn/submissions/${encodeURIComponent(r.responseId)}`)}
+                          onClick={() =>
+                            nav(
+                              `/learn/submissions/${encodeURIComponent(
+                                r.responseId
+                              )}`
+                            )
+                          }
                         >
-                          <img src={view} alt="" style={{width:20, height:20}}/>
+                          <img
+                            src={view}
+                            alt=""
+                            style={{ width: 20, height: 20 }}
+                          />
                         </button>
                       </td>
                     </tr>
@@ -236,35 +296,45 @@ export default function MySubmissions() {
               </table>
             </div>
 
-            {/* Footer / Pagination */}
+            {/* Footer / Pagination – same as ViewForm footer */}
             <div className="ms-footer">
-              <div className="ipp">
-                <label>Items per page</label>
-                <select value={pageSize} onChange={(e) => setPageSize(+e.target.value)}>
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                </select>
-              </div>
-
-              <div className="pager">
-                <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={pageSafe <= 1}
-                  aria-label="Previous page"
-                >
-                  ‹
-                </button>
-                <span className="pg-text">
-                  {pageSafe} <span className="muted">of</span> {pageCount} <span className="muted">pages</span>
-                </span>
-                <button
-                  onClick={() => setPage(p => Math.min(pageCount, p + 1))}
-                  disabled={pageSafe >= pageCount}
-                  aria-label="Next page"
-                >
-                  ›
-                </button>
+              <div className="vf-pager">
+                <div className="vf-ipp">
+                  Items per page{" "}
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(+e.target.value);
+                      setPage(1);
+                    }}
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+                <div className="grow" />
+                <div className="vf-page">
+                  <button
+                    className="btn small pill"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={pageSafe <= 1}
+                    aria-label="Previous page"
+                  >
+                    ‹
+                  </button>
+                  <span>
+                    {pageSafe} of {pageCount}
+                  </span>
+                  <button
+                    className="btn small pill"
+                    onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                    disabled={pageSafe >= pageCount}
+                    aria-label="Next page"
+                  >
+                    ›
+                  </button>
+                </div>
               </div>
             </div>
           </>

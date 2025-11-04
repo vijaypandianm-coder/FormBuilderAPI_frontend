@@ -162,7 +162,7 @@
 .ms-select select{
   appearance:none; width:100%; height:40px;
   padding:0 36px 0 12px;
-  background:#fff; border:1px solid var(--border);
+  background:#fff; border:1px solid #D8D8D8;
   border-radius:8px; font: 500 14px/1 Inter, ui-sans-serif; color:#111827;
 }
 .ms-select .ms-caret{
@@ -177,11 +177,11 @@
   position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#6B7280;
 }
 .ms-search input{
-  width:100%; height:40px; border:1px solid var(--border); border-radius:8px;
+  width:100%; height:40px; border:1px solid #D8D8D8; border-radius:8px;
   padding:0 12px 0 30px; background:#fff;
 }
 .ms-filter{
-  height:40px; padding:0 12px; border:1px solid var(--border); border-radius:8px;
+  height:40px; padding:0 12px; border:1px solid #D8D8D8; border-radius:8px;
   background:#fff; cursor:pointer;
 }
 
@@ -400,4 +400,45 @@ textarea.fs-input{ min-height:88px; resize:vertical; }
 }
 .fs-chip.on .fs-box{
   background:#6C4DFF; border-color:#6C4DFF; box-shadow:inset 0 0 0 2px #fff;
+}
+/* Figma-style pager layout – used on Learner, My Submissions, Admin dashboard */
+.vf-pager {
+  display: flex;
+  align-items: center;
+  padding: 16px 24px;
+  border-top: 1px solid #eee;
+  font-size: 14px;
+}
+
+.vf-ipp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vf-ipp select {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #d0d5dd;
+  background: #fff;
+}
+
+/* spacer between left & right */
+.vf-pager .grow {
+  flex: 1;
+}
+
+/* page text + arrows on the far right */
+.vf-page {
+  margin-left: auto;        /* pushes it to the right edge */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vf-page .btn.small.pill {
+  min-width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  padding: 0 8px;
 }

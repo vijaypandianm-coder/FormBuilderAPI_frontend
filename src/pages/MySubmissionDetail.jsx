@@ -1,3 +1,4 @@
+// src/pages/MySubmissionDetail.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import ResponseService from "../api/responses";
@@ -5,6 +6,57 @@ import { FormService } from "../api/forms";
 import "./learner.css";
 
 const toStr = (x) => (x == null ? "" : String(x));
+
+// same base URL that apiFetch uses (configure in .env as VITE_API_BASE_URL)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+
+// ---- helper: try to auto-find a JWT in localStorage / sessionStorage ----
+const jwtRegex = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/;
+
+function extractJwtFromObject(obj) {
+  if (!obj || typeof obj !== "object") return null;
+  for (const value of Object.values(obj)) {
+    if (!value) continue;
+    if (typeof value === "string" && jwtRegex.test(value)) return value;
+    if (typeof value === "object") {
+      const nested = extractJwtFromObject(value);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+function findJwtToken() {
+  const scanStore = (store) => {
+    try {
+      for (let i = 0; i < store.length; i++) {
+        const key = store.key(i);
+        const val = store.getItem(key);
+        if (!val) continue;
+
+        // raw string token
+        if (jwtRegex.test(val)) return val;
+
+        // token hidden in JSON
+        const first = val[0];
+        if (first === "{" || first === "[") {
+          try {
+            const parsed = JSON.parse(val);
+            const found = extractJwtFromObject(parsed);
+            if (found) return found;
+          } catch {
+            // ignore JSON parse errors
+          }
+        }
+      }
+    } catch {
+      // some browsers can throw on access, ignore
+    }
+    return null;
+  };
+
+  return scanStore(window.localStorage) || scanStore(window.sessionStorage);
+}
 
 export default function MySubmissionDetail() {
   const { responseId } = useParams();
@@ -96,6 +148,63 @@ export default function MySubmissionDetail() {
     return () => { alive = false; };
   }, [responseId]);
 
+  // ---------- AUTHENTICATED FILE DOWNLOAD: uses *Id* from formresponsefiles ----------
+  const downloadFile = async (fileIdRaw) => {
+    if (!fileIdRaw) return;
+
+    const url = `${API_BASE}/api/Response/file/${encodeURIComponent(fileIdRaw)}`;
+
+    const jwt = findJwtToken();
+    if (!jwt) {
+      console.warn("No JWT token found in storage – download will be 401");
+    }
+
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        headers: jwt
+          ? {
+              Authorization: `Bearer ${jwt}`,
+            }
+          : {},
+      });
+
+      if (!res.ok) {
+        const msg = `Download failed (${res.status})`;
+        console.error(msg);
+        alert(msg);
+        return;
+      }
+
+      const blob = await res.blob();
+
+      // Try to extract filename from Content-Disposition
+      let filename = "download";
+      const cd =
+        res.headers.get("Content-Disposition") ||
+        res.headers.get("content-disposition");
+      if (cd) {
+        const match =
+          /filename\*=UTF-8''([^;]+)|filename="?([^"]+)"?/i.exec(cd);
+        if (match) {
+          filename = decodeURIComponent(match[1] || match[2]);
+        }
+      }
+
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      console.error("Download error", e);
+      alert("Failed to download file");
+    }
+  };
+
   /** Render a value according to field type & options */
   function renderValue(fieldId, fieldTypeRaw, raw) {
     const field = fieldMap.get(fieldId);
@@ -104,13 +213,21 @@ export default function MySubmissionDetail() {
     // optionIds array or JSON string? normalize to string[]
     let optionIds = [];
     if (Array.isArray(raw)) optionIds = raw.map(toStr);
-    else if (typeof raw === "string" && (fieldType.includes("checkbox") || fieldType.includes("multi"))) {
+    else if (
+      typeof raw === "string" &&
+      (fieldType.includes("checkbox") || fieldType.includes("multi"))
+    ) {
       try { optionIds = JSON.parse(raw); } catch { /* keep empty */ }
     }
 
     // multi choice
-    if (optionIds.length && (fieldType.includes("checkbox") || fieldType.includes("multi"))) {
-      const names = optionIds.map(id => field?.options?.find(o => o.id === id)?.text || id);
+    if (
+      optionIds.length &&
+      (fieldType.includes("checkbox") || fieldType.includes("multi"))
+    ) {
+      const names = optionIds.map(
+        (id) => field?.options?.find((o) => o.id === id)?.text || id
+      );
       return names.join(", ") || "—";
     }
 
@@ -118,16 +235,37 @@ export default function MySubmissionDetail() {
     const value = Array.isArray(raw) ? raw[0] : raw;
     const str = toStr(value);
 
-    if (["radio", "dropdown", "mcq"].some(t => fieldType.includes(t))) {
-      const opt = field?.options?.find(o => o.id === str)?.text;
+    if (["radio", "dropdown", "mcq"].some((t) => fieldType.includes(t))) {
+      const opt = field?.options?.find((o) => o.id === str)?.text;
       return opt || str || "—";
     }
 
-    // file
+    // ---------- FILE FIELD: token "file:{Id}" -> use *Id*, not ResponseId ----------
     if (fieldType.includes("file")) {
-      return str ? (
-        <a className="vs-file" href={str} target="_blank" rel="noreferrer">View Uploaded File</a>
-      ) : "—";
+      const token = toStr(raw);
+      if (!token) return "—";
+
+      // expected format from backend: "file:{Id}"  (Id column: 1,2,3,...)
+      const match = /^file:(\d+)$/.exec(token);
+      const fileId = match ? match[1] : token; // fallback if format ever changes
+
+      return (
+        <button
+          type="button"
+          onClick={() => downloadFile(fileId)}
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            margin: 0,
+            color: "#3b82f6",
+            textDecoration: "underline",
+            cursor: "pointer",
+          }}
+        >
+          Download file
+        </button>
+      );
     }
 
     // rating (1-10) just show value
@@ -172,13 +310,7 @@ export default function MySubmissionDetail() {
     <div className="fs-shell">
       {/* top bar with back link (small, unobtrusive) */}
       <div className="topbar" style={{marginBottom: 12}}>
-        {/* <div className="crumbs">
-          <button className="btn" onClick={() => nav(-1)} aria-label="Back" style={{padding:"6px 10px"}}>←</button>
-          <span className="crumb-sep">/</span>
-          <Link className="crumb" to="/learn/my-submissions">My Submissions</Link>
-          <span className="crumb-sep">/</span>
-          <span className="crumb is-last">View submission</span>
-        </div> */}
+        {/* back / crumbs if you want later */}
       </div>
 
       {/* hero strip */}
@@ -208,28 +340,31 @@ export default function MySubmissionDetail() {
           {loading && <div className="lr-empty">Loading submission…</div>}
           {err && !loading && <div className="lr-error">{err}</div>}
 
-          {!loading && !err && orderedRows.map((row, idx) => (
-            <div key={row.key ?? idx} className="fs-field">
-              <div className="fs-qrow">
-                <span className="fs-idx">{idx + 1}</span>
-                <div className="fs-label">{row.label}</div>
-              </div>
+          {!loading && !err && orderedRows.map((row, idx) => {
+            const isTextarea = row.type.toLowerCase().includes("textarea");
+            return (
+              <div key={row.key ?? idx} className="fs-field">
+                <div className="fs-qrow">
+                  <span className="fs-idx">{idx + 1}</span>
+                  <div className="fs-label">{row.label}</div>
+                </div>
 
-              {row.type.toLowerCase().includes("textarea") ? (
-                <textarea className="fs-input" readOnly value={toStr(row.value)} />
-              ) : (
-                <div className="fs-input" aria-readonly>{toStr(row.value)}</div>
-              )}
-            </div>
-          ))}
+                {isTextarea ? (
+                  <textarea
+                    className="fs-input"
+                    readOnly
+                    value={toStr(row.value)}
+                  />
+                ) : (
+                  <div className="fs-input" aria-readonly>
+                    {row.value}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </section>
-
-      {/* small info banner under card (optional) */}
-      {/* <div className="fs-info-banner">
-        ✅ Your submission was recorded successfully.
-        <Link to="/learn/my-submissions" style={{marginLeft:8}}>Back to My Submissions</Link>
-      </div> */}
     </div>
   );
 }

@@ -10,7 +10,126 @@ import date from "../assets/date.png";
 import dropdown from "../assets/dropdown.png";
 import file from "../assets/files.png";
 import number from "../assets/number.png";
+import search from "../assets/search.png";
+
 const useQuery = () => new URLSearchParams(useLocation().search);
+
+// same base URL that apiFetch uses (configure in .env as VITE_API_BASE_URL)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+
+// ---- helper: try to auto-find a JWT in localStorage / sessionStorage (same as MySubmissionDetail) ----
+const jwtRegex = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/;
+
+function extractJwtFromObject(obj) {
+  if (!obj || typeof obj !== "object") return null;
+  for (const value of Object.values(obj)) {
+    if (!value) continue;
+    if (typeof value === "string" && jwtRegex.test(value)) return value;
+    if (typeof value === "object") {
+      const nested = extractJwtFromObject(value);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+function findJwtToken() {
+  const scanStore = (store) => {
+    try {
+      for (let i = 0; i < store.length; i++) {
+        const key = store.key(i);
+        const val = store.getItem(key);
+        if (!val) continue;
+
+        // raw string token
+        if (jwtRegex.test(val)) return val;
+
+        // token hidden in JSON
+        const first = val[0];
+        if (first === "{" || first === "[") {
+          try {
+            const parsed = JSON.parse(val);
+            const found = extractJwtFromObject(parsed);
+            if (found) return found;
+          } catch {
+            // ignore JSON parse errors
+          }
+        }
+      }
+    } catch {
+      // some browsers can throw on access, ignore
+    }
+    return null;
+  };
+
+  return scanStore(window.localStorage) || scanStore(window.sessionStorage);
+}
+
+/* ---------- AUTHENTICATED FILE DOWNLOAD: uses Id from formresponsefiles (file:{Id}) ---------- */
+async function downloadFileFromToken(tokenRaw) {
+  if (!tokenRaw) return;
+  const token = String(tokenRaw);
+
+  // expected format from backend: "file:{Id}" (Id is 1,2,3,... from formresponsefiles)
+  const match = /^file:(\d+)$/.exec(token);
+  const fileIdRaw = match ? match[1] : token; // fallback if format differs
+
+  const url = `${API_BASE}/api/Response/file/${encodeURIComponent(fileIdRaw)}`;
+
+  const jwt = findJwtToken();
+  if (!jwt) {
+    console.warn("No JWT token found in storage – download will be 401");
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: jwt
+        ? {
+            Authorization: `Bearer ${jwt}`,
+          }
+        : {},
+    });
+
+    if (!res.ok) {
+      const msg = `Download failed (${res.status})`;
+      console.error(msg);
+      alert(msg);
+      return;
+    }
+
+    const blob = await res.blob();
+
+    // Try to extract filename from Content-Disposition
+    let filename = "download";
+    const cd =
+      res.headers.get("Content-Disposition") ||
+      res.headers.get("content-disposition");
+    if (cd) {
+      const matchName =
+        /filename\*=UTF-8''([^;]+)|filename="?([^"]+)"?/i.exec(cd);
+      if (matchName) {
+        try {
+          filename = decodeURIComponent(matchName[1] || matchName[2]);
+        } catch {
+          filename = (matchName[1] || matchName[2] || "").trim() || filename;
+        }
+      }
+    }
+
+    const blobUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (e) {
+    console.error("Download error", e);
+    alert("Failed to download file");
+  }
+}
 
 export default function ViewForm() {
   const { formKey } = useParams();
@@ -63,7 +182,9 @@ export default function ViewForm() {
         if (alive) setLoading(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [formKey]);
 
   /* ---------------- label helpers ---------------- */
@@ -79,13 +200,22 @@ export default function ViewForm() {
     const idx = {};
     const sections = Array.isArray(lyt?.sections)
       ? lyt.sections
-      : Array.isArray(lyt) ? lyt : [];
+      : Array.isArray(lyt)
+      ? lyt
+      : [];
     sections.forEach((s) => {
       const fields = Array.isArray(s?.fields) ? s.fields : [];
       fields.forEach((f) => {
         const label = f.label || f.name || "Untitled";
         const candidates = [
-          f.fieldId, f.id, f.key, f.name, f.slug, f.dbKey, f.code, f.uuid
+          f.fieldId,
+          f.id,
+          f.key,
+          f.name,
+          f.slug,
+          f.dbKey,
+          f.code,
+          f.uuid,
         ].filter(Boolean);
         candidates.forEach((k) => {
           const raw = String(k);
@@ -108,24 +238,55 @@ export default function ViewForm() {
 
     const hit = Object.keys(labelIndex).find((k) => {
       const kn = normalizeKey(k);
-      return raw.endsWith(k) || raw.toLowerCase().endsWith(k.toLowerCase()) || norm === kn || norm.endsWith(kn);
+      return (
+        raw.endsWith(k) ||
+        raw.toLowerCase().endsWith(k.toLowerCase()) ||
+        norm === kn ||
+        norm.endsWith(kn)
+      );
     });
     if (hit) return labelIndex[hit];
 
-    const sections = Array.isArray(lyt?.sections) ? lyt.sections : (Array.isArray(lyt) ? lyt : []);
+    const sections = Array.isArray(lyt?.sections)
+      ? lyt.sections
+      : Array.isArray(lyt)
+      ? lyt
+      : [];
     for (const s of sections) {
-      for (const f of (s?.fields || [])) {
-        const keys = [f.fieldId, f.id, f.key, f.name, f.slug, f.dbKey, f.code, f.uuid]
-          .filter(Boolean).map(String);
-        if (keys.some(k => {
-          const kn = normalizeKey(k);
-          return raw.endsWith(k) || raw.toLowerCase().endsWith(k.toLowerCase()) || norm === kn || norm.endsWith(kn);
-        })) {
+      for (const f of s?.fields || []) {
+        const keys = [
+          f.fieldId,
+          f.id,
+          f.key,
+          f.name,
+          f.slug,
+          f.dbKey,
+          f.code,
+          f.uuid,
+        ]
+          .filter(Boolean)
+          .map(String);
+        if (
+          keys.some((k) => {
+            const kn = normalizeKey(k);
+            return (
+              raw.endsWith(k) ||
+              raw.toLowerCase().endsWith(k.toLowerCase()) ||
+              norm === kn ||
+              norm.endsWith(kn)
+            );
+          })
+        ) {
           return f.label || f.name || "Untitled";
         }
       }
     }
-    return fallbacks.fieldLabel || fallbacks.label || fallbacks.questionLabel || raw;
+    return (
+      fallbacks.fieldLabel ||
+      fallbacks.label ||
+      fallbacks.questionLabel ||
+      raw
+    );
   };
 
   /* ---------------- username helpers ---------------- */
@@ -134,7 +295,9 @@ export default function ViewForm() {
       const r = await fetch(url, { signal });
       if (!r.ok) return null;
       return await r.json();
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   };
 
   const normalizeBulkUsers = (data) => {
@@ -142,7 +305,7 @@ export default function ViewForm() {
     if (Array.isArray(data)) {
       const out = {};
       data.forEach((u) => {
-        if (u && (u.id !== undefined)) {
+        if (u && u.id !== undefined) {
           out[u.id] = u.name || u.username || `User ${u.id}`;
         }
       });
@@ -150,7 +313,10 @@ export default function ViewForm() {
     }
     const out = {};
     Object.entries(data).forEach(([id, name]) => {
-      const n = typeof name === "string" ? name : (name?.name || name?.username);
+      const n =
+        typeof name === "string"
+          ? name
+          : name?.name || name?.username;
       out[Number(id)] = n || `User ${id}`;
     });
     return out;
@@ -162,7 +328,9 @@ export default function ViewForm() {
 
     const bulkCandidates = [
       `/api/users/by-ids?ids=${encodeURIComponent(missing.join(","))}`,
-      `/api/admin/users/by-ids?ids=${encodeURIComponent(missing.join(","))}`,
+      `/api/admin/users/by-ids?ids=${encodeURIComponent(
+        missing.join(",")
+      )}`,
       `/users/by-ids?ids=${encodeURIComponent(missing.join(","))}`,
       `/admin/users/by-ids?ids=${encodeURIComponent(missing.join(","))}`,
     ];
@@ -227,23 +395,35 @@ export default function ViewForm() {
           }
           byId.get(row.responseId).fields.push({
             fieldId: row.fieldId,
-            label: resolveLabel(row.fieldId, row, labelIdx, layout),
+            label: resolveLabel(
+              row.fieldId,
+              row,
+              labelIdx,
+              layout
+            ),
             value: row.answerValue,
           });
         });
 
         const query = respQ.trim().toLowerCase();
         let subs = Array.from(byId.values()).sort(
-          (a, b) => new Date(b.submittedOn) - new Date(a.submittedOn)
+          (a, b) =>
+            new Date(b.submittedOn) - new Date(a.submittedOn)
         );
 
         if (query) {
-          subs = subs.filter(s =>
-            String(s.userId).includes(query) ||
-            s.fields.some(f =>
-              String(f.label || "").toLowerCase().includes(query) ||
-              String(f.value || "").toLowerCase().includes(query)
-            )
+          subs = subs.filter(
+            (s) =>
+              String(s.userId).includes(query) ||
+              s.fields.some(
+                (f) =>
+                  String(f.label || "")
+                    .toLowerCase()
+                    .includes(query) ||
+                  String(f.value || "")
+                    .toLowerCase()
+                    .includes(query)
+              )
           );
         }
 
@@ -251,27 +431,35 @@ export default function ViewForm() {
         const start = (respPage - 1) * respPageSize;
         const pageRows = subs.slice(start, start + respPageSize);
 
-        const idsOnPage = [...new Set(pageRows.map(r => r.userId).filter(v => v != null))];
+        const idsOnPage = [
+          ...new Set(
+            pageRows
+              .map((r) => r.userId)
+              .filter((v) => v != null)
+          ),
+        ];
         fetchUsernamesIfMissing(idsOnPage, ctrl.signal);
 
         // Used In = Form title
-        const rows = activeRespTab === "summary"
-          ? pageRows.map(s => ({
-              id: s.id,
-              userId: s.userId,
-              userName: userNameMap[s.userId] || `User ${s.userId}`,
-              submittedOn: s.submittedOn,
-              usedIn: form?.title || "—",
-              email: "—",
-            }))
-          : pageRows;
+        const rows =
+          activeRespTab === "summary"
+            ? pageRows.map((s) => ({
+                id: s.id,
+                userId: s.userId,
+                userName:
+                  userNameMap[s.userId] || `User ${s.userId}`,
+                submittedOn: s.submittedOn,
+                usedIn: form?.title || "—",
+                email: "—",
+              }))
+            : pageRows;
 
         if (!alive) return;
         setRespRows(rows);
         setRespTotal(total);
 
         if (activeRespTab === "individual") {
-          const ids = pageRows.map(r => r.id);
+          const ids = pageRows.map((r) => r.id);
           if (!ids.includes(selectedRespId)) {
             setSelectedRespId(pageRows[0]?.id ?? null);
           }
@@ -289,17 +477,57 @@ export default function ViewForm() {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, activeRespTab, respPage, respPageSize, respQ, formKey, layout, userNameMap, form?.title]);
+  }, [
+    tab,
+    activeRespTab,
+    respPage,
+    respPageSize,
+    respQ,
+    formKey,
+    layout,
+    userNameMap,
+    form?.title,
+  ]);
 
   /* ---------------- renderers ---------------- */
-const FIELD_TYPES = [
-  { id: "short", label: "Short Text", placeholder: "Short Text (Up to 100 Characters)", icon: short },
-  { id: "long", label: "Long Text", placeholder: "Long Text (Up to 500 Characters)", icon: long },
-  { id: "date", label: "Date Picker", placeholder: "DD/MM/YYYY", icon: date },
-  { id: "dropdown", label: "Dropdown", placeholder: "Option 1" , icon: dropdown},
-  { id: "file", label: "File Upload", placeholder: "Upload your file" , icon: file},
-  { id: "number", label: "Number", placeholder: "Numeric value" , icon: number},
-];
+  const FIELD_TYPES = [
+    {
+      id: "short",
+      label: "Short Text",
+      placeholder: "Short Text (Up to 100 Characters)",
+      icon: short,
+    },
+    {
+      id: "long",
+      label: "Long Text",
+      placeholder: "Long Text (Up to 500 Characters)",
+      icon: long,
+    },
+    {
+      id: "date",
+      label: "Date Picker",
+      placeholder: "DD/MM/YYYY",
+      icon: date,
+    },
+    {
+      id: "dropdown",
+      label: "Dropdown",
+      placeholder: "Option 1",
+      icon: dropdown,
+    },
+    {
+      id: "file",
+      label: "File Upload",
+      placeholder: "Upload your file",
+      icon: file,
+    },
+    {
+      id: "number",
+      label: "Number",
+      placeholder: "Numeric value",
+      icon: number,
+    },
+  ];
 
   const renderConfig = () => (
     <div className="vf-card">
@@ -312,7 +540,12 @@ const FIELD_TYPES = [
 
       <div className="vf-field">
         <label className="vf-label">Form Description</label>
-        <textarea className="vf-input" rows={3} value={form?.description || ""} disabled />
+        <textarea
+          className="vf-input"
+          rows={3}
+          value={form?.description || ""}
+          disabled
+        />
       </div>
 
       <div className="vf-field">
@@ -322,24 +555,29 @@ const FIELD_TYPES = [
         <label className="vf-switch" aria-label="Form visibility">
           <input
             type="checkbox"
-            checked={String(form?.status).toLowerCase() === "published"}
+            checked={
+              String(form?.status).toLowerCase() === "published"
+            }
             readOnly
           />
           <span aria-hidden />
         </label>
 
         <p className="vf-hint">
-          Turn on to allow new workflows to use this form. Turn off to hide it; existing workflows keep working.
+          Turn on to allow new workflows to use this form. Turn off to
+          hide it; existing workflows keep working.
         </p>
       </div>
     </div>
   );
 
-  /* ---------- UPDATED: Form Layout to match Create Form ---------- */
+  /* ---------- Form Layout ---------- */
   const renderLayout = () => {
     const sections = Array.isArray(layout?.sections)
       ? layout.sections
-      : Array.isArray(layout) ? layout : [];
+      : Array.isArray(layout)
+      ? layout
+      : [];
 
     return (
       <div className="vf-layout">
@@ -348,35 +586,95 @@ const FIELD_TYPES = [
           <div className="vf-pane">
             <div className="vf-pane-title">Input Fields</div>
             <div className="vf-list">
-              <div className="vf-item"><img src={short} style={{height:"40px",width:"40px",borderRadius:"5.13px",marginRight:"8px"}}  alt="Short Text" /> Short Text</div>
-              <div className="vf-item"><img src={long} style={{height:"40px",width:"40px",borderRadius:"5.13px",marginRight:"8px"}}  alt="Long Text" />Long Text</div>
-              <div className="vf-item"><img src={date} style={{height:"40px",width:"40px",borderRadius:"5.13px",marginRight:"8px"}}  alt="Date Picker" /> Date Picker</div>
-              <div className="vf-item"><img src={dropdown} style={{height:"40px",width:"40px",borderRadius:"5.13px",marginRight:"8px"}}  alt="Dropdown" />Dropdown</div>
-              <div className="vf-item"><img src={file} style={{height:"40px",width:"40px",borderRadius:"5.13px",marginRight:"8px"}}  alt="File Upload" />File Upload</div>
-              <div className="vf-item"><img src={number} style={{height:"40px",width:"40px",borderRadius:"5.13px",marginRight:"8px"}}  alt="File Upload" /> Number</div>
+              <div className="vf-item">
+                <img
+                  src={short}
+                  style={{
+                    height: "40px",
+                    width: "40px",
+                    borderRadius: "5.13px",
+                    marginRight: "8px",
+                  }}
+                  alt="Short Text"
+                />
+                Short Text
+              </div>
+              <div className="vf-item">
+                <img
+                  src={long}
+                  style={{
+                    height: "40px",
+                    width: "40px",
+                    borderRadius: "5.13px",
+                    marginRight: "8px",
+                  }}
+                  alt="Long Text"
+                />
+                Long Text
+              </div>
+              <div className="vf-item">
+                <img
+                  src={date}
+                  style={{
+                    height: "40px",
+                    width: "40px",
+                    borderRadius: "5.13px",
+                    marginRight: "8px",
+                  }}
+                  alt="Date Picker"
+                />
+                Date Picker
+              </div>
+              <div className="vf-item">
+                <img
+                  src={dropdown}
+                  style={{
+                    height: "40px",
+                    width: "40px",
+                    borderRadius: "5.13px",
+                    marginRight: "8px",
+                  }}
+                  alt="Dropdown"
+                />
+                Dropdown
+              </div>
+              <div className="vf-item">
+                <img
+                  src={file}
+                  style={{
+                    height: "40px",
+                    width: "40px",
+                    borderRadius: "5.13px",
+                    marginRight: "8px",
+                  }}
+                  alt="File Upload"
+                />
+                File Upload
+              </div>
+              <div className="vf-item">
+                <img
+                  src={number}
+                  style={{
+                    height: "40px",
+                    width: "40px",
+                    borderRadius: "5.13px",
+                    marginRight: "8px",
+                  }}
+                  alt="File Upload"
+                />
+                Number
+              </div>
             </div>
           </div>
-
-          {/* <div className="vf-pane">
-            <div className="vf-pane-title">UDF Fields</div>
-            <div className="vf-udf-search" style={{ marginBottom: 10 }}>
-              <input placeholder="Search UDF" />
-            </div>
-            <div className="vf-list">
-              <div className="vf-item"><span className="dot" /> Designation</div>
-              <div className="vf-item"><span className="dot" /> Department</div>
-              <div className="vf-item"><span className="dot" /> Location</div>
-              <div className="vf-item"><span className="dot" /> Blood Group</div>
-              <div className="vf-item"><span className="dot" /> Education</div>
-            </div>
-          </div> */}
         </aside>
 
-        {/* RIGHT: header card + section cards with purple cap, like builder */}
+        {/* RIGHT: header card + section cards */}
         <section className="vf-right">
           <div className="vf-formhead vfl">
             <div className="title">{form?.title || "Form Header"}</div>
-            {form?.description ? <div className="desc">{form.description}</div> : null}
+            {form?.description ? (
+              <div className="desc">{form.description}</div>
+            ) : null}
           </div>
 
           {sections.length === 0 ? (
@@ -384,28 +682,31 @@ const FIELD_TYPES = [
           ) : (
             sections.map((s, si) => (
               <section key={si} className="vfl-sec">
-               
-               
+                {(s.fields || []).map((f, fi) => {
+                  const label =
+                    f.label ||
+                    f.name ||
+                    f.fieldId ||
+                    f.id ||
+                    `Untitled Question ${fi + 1}`;
+                  const typeTxt = (f.type || "")
+                    .toString()
+                    .toLowerCase();
 
-                
-                  {(s.fields || []).map((f, fi) => {
-                    const label =
-                      f.label || f.name || f.fieldId || f.id || `Untitled Question ${fi + 1}`;
-                    const typeTxt = (f.type || "").toString().toLowerCase();
-
-                    return (
-                      <div key={fi} className="vfl-row">
-                        <div className="vfl-row-inner">
-                          <div className="vfl-row-title">
-                            {label}
-                            {(f.isRequired || f.required) ? <span className="req">*</span> : null}
-                          </div>
-                          <div className="vfl-row-sub">{typeTxt}</div>
+                  return (
+                    <div key={fi} className="vfl-row">
+                      <div className="vfl-row-inner">
+                        <div className="vfl-row-title">
+                          {label}
+                          {(f.isRequired || f.required) ? (
+                            <span className="req">*</span>
+                          ) : null}
                         </div>
+                        <div className="vfl-row-sub">{typeTxt}</div>
                       </div>
-                    );
-                  })}
-                
+                    </div>
+                  );
+                })}
               </section>
             ))
           )}
@@ -418,14 +719,24 @@ const FIELD_TYPES = [
     <div className="vf-resp">
       <div className="vf-resp-tabs">
         <button
-          className={`chip ${activeRespTab === "summary" ? "active" : ""}`}
-          onClick={() => { setActiveRespTab("summary"); setRespPage(1); }}
+          className={`chip ${
+            activeRespTab === "summary" ? "active" : ""
+          }`}
+          onClick={() => {
+            setActiveRespTab("summary");
+            setRespPage(1);
+          }}
         >
           Response Summary
         </button>
         <button
-          className={`chip ${activeRespTab === "individual" ? "active" : ""}`}
-          onClick={() => { setActiveRespTab("individual"); setRespPage(1); }}
+          className={`chip ${
+            activeRespTab === "individual" ? "active" : ""
+          }`}
+          onClick={() => {
+            setActiveRespTab("individual");
+            setRespPage(1);
+          }}
         >
           Individual Response
         </button>
@@ -435,15 +746,29 @@ const FIELD_TYPES = [
           <input
             placeholder="Search by Name/User ID"
             value={respQ}
-            onChange={(e) => { setRespQ(e.target.value); setRespPage(1); }}
+            onChange={(e) => {
+              setRespQ(e.target.value);
+              setRespPage(1);
+            }}
           />
-          <span aria-hidden>🔍</span>
+          <span aria-hidden>
+            <img src={search} alt="" style={{ width: 20, height: 20 }} />
+          </span>
         </div>
-        <button className="btn outline-primary pill" onClick={() => window.alert("Filter UI TBD")}>Filter</button>
-        <button className="btn primary pill" onClick={() => window.alert("Export API TBD")}>Export to Excel</button>
+        <button
+          className="btn outline-primary pill"
+          onClick={() => window.alert("Filter UI TBD")}
+        >
+          Filter
+        </button>
+        <button
+          className="btn primary pill"
+          onClick={() => window.alert("Export API TBD")}
+        >
+          Export to Excel
+        </button>
       </div>
 
-      {/* unchanged table & detail views */}
       {activeRespTab === "summary" ? (
         <>
           <div className="vf-table-wrap">
@@ -466,15 +791,28 @@ const FIELD_TYPES = [
                 <tbody>
                   {respRows.map((r) => (
                     <tr key={r.id}>
-                      <td>{userNameMap[r.userId] || r.userName || `User ${r.userId}`}</td>
+                      <td>
+                        {userNameMap[r.userId] ||
+                          r.userName ||
+                          `User ${r.userId}`}
+                      </td>
                       <td>{r.userId}</td>
                       <td>{r.usedIn}</td>
-                      <td>{r.submittedOn ? new Date(r.submittedOn).toLocaleString() : "—"}</td>
+                      <td>
+                        {r.submittedOn
+                          ? new Date(
+                              r.submittedOn
+                            ).toLocaleString()
+                          : "—"}
+                      </td>
                       <td>{r.email || "—"}</td>
                       <td>
                         <button
                           className="btn small pill btn-view"
-                          onClick={() => { setActiveRespTab("individual"); setSelectedRespId(r.id); }}
+                          onClick={() => {
+                            setActiveRespTab("individual");
+                            setSelectedRespId(r.id);
+                          }}
                         >
                           View
                         </button>
@@ -486,21 +824,45 @@ const FIELD_TYPES = [
             )}
           </div>
 
+          {/* This pager is the design copied to other pages */}
           <div className="vf-pager">
             <div className="vf-ipp">
               Items per page{" "}
               <select
                 value={respPageSize}
-                onChange={(e) => { setRespPageSize(Number(e.target.value)); setRespPage(1); }}
+                onChange={(e) => {
+                  setRespPageSize(Number(e.target.value));
+                  setRespPage(1);
+                }}
               >
-                <option>10</option><option>25</option><option>50</option>
+                <option>10</option>
+                <option>25</option>
+                <option>50</option>
               </select>
             </div>
             <div className="grow" />
             <div className="vf-page">
-              <button className="btn small pill" disabled={respPage <= 1} onClick={() => setRespPage(p => Math.max(1, p - 1))}>‹</button>
-              <span>{respPage} of {respPages}</span>
-              <button className="btn small pill" disabled={respPage >= respPages} onClick={() => setRespPage(p => Math.min(respPages, p + 1))}>›</button>
+              <button
+                className="btn small pill"
+                disabled={respPage <= 1}
+                onClick={() =>
+                  setRespPage((p) => Math.max(1, p - 1))
+                }
+              >
+                ‹
+              </button>
+              <span>
+                {respPage} of {respPages}
+              </span>
+              <button
+                className="btn small pill"
+                disabled={respPage >= respPages}
+                onClick={() =>
+                  setRespPage((p) => Math.min(respPages, p + 1))
+                }
+              >
+                ›
+              </button>
             </div>
           </div>
         </>
@@ -508,26 +870,57 @@ const FIELD_TYPES = [
         <div className="vf-indiv">
           <aside className="vf-indiv-list">
             {respRows.length === 0 ? (
-              <div className="vf-empty" style={{ padding: 16 }}>No responses</div>
+              <div className="vf-empty" style={{ padding: 16 }}>
+                No responses
+              </div>
             ) : (
               respRows.map((r) => (
                 <button
                   key={r.id}
-                  className={`vf-indiv-item ${selectedRespId === r.id ? "selected" : ""}`}
+                  className={`vf-indiv-item ${
+                    selectedRespId === r.id ? "selected" : ""
+                  }`}
                   onClick={() => setSelectedRespId(r.id)}
                 >
-                  <div className="name">{userNameMap[r.userId] || `User ${r.userId}`}</div>
-                  <div className="meta">
-                    Submitted • {r.submittedOn ? new Date(r.submittedOn).toLocaleString() : "—"}
+                  <div className="name">
+                    {userNameMap[r.userId] || `User ${r.userId}`}
                   </div>
-                  <div className="tag">Response ID: {r.id}</div>
+                  <div className="meta">
+                    Submitted •{" "}
+                    {r.submittedOn
+                      ? new Date(
+                          r.submittedOn
+                        ).toLocaleString()
+                      : "—"}
+                  </div>
+                  <div className="tag">
+                    Response ID: {r.id}
+                  </div>
                 </button>
               ))
             )}
             <div className="vf-mini-pager">
-              <button className="btn small pill" disabled={respPage <= 1} onClick={() => setRespPage(p => Math.max(1, p - 1))}>‹</button>
-              <span>{respPage} / {respPages}</span>
-              <button className="btn small pill" disabled={respPage >= respPages} onClick={() => setRespPage(p => Math.min(respPages, p + 1))}>›</button>
+              <button
+                className="btn small pill"
+                disabled={respPage <= 1}
+                onClick={() =>
+                  setRespPage((p) => Math.max(1, p - 1))
+                }
+              >
+                ‹
+              </button>
+              <span>
+                {respPage} / {respPages}
+              </span>
+              <button
+                className="btn small pill"
+                disabled={respPage >= respPages}
+                onClick={() =>
+                  setRespPage((p) => Math.min(respPages, p + 1))
+                }
+              >
+                ›
+              </button>
             </div>
           </aside>
 
@@ -535,20 +928,52 @@ const FIELD_TYPES = [
             <div className="vf-formbox">
               <div className="vf-formbox-topbar" />
               <div className="vf-formbox-head">
-                <div className="title">{form?.title || "Form"}</div>
-                <div className="hint">{form?.description || ""}</div>
+                <div className="title">
+                  {form?.title || "Form"}
+                </div>
+                <div className="hint">
+                  {form?.description || ""}
+                </div>
               </div>
 
               <div className="vf-formbox-body">
                 {(() => {
-                  const current = respRows.find((r) => r.id === selectedRespId) || respRows[0];
-                  if (!current) return <div className="vf-empty">Select a response on the left</div>;
+                  const current =
+                    respRows.find(
+                      (r) => r.id === selectedRespId
+                    ) || respRows[0];
+                  if (!current)
+                    return (
+                      <div className="vf-empty">
+                        Select a response on the left
+                      </div>
+                    );
                   return (current.fields || []).map((f, i) => (
                     <div key={i} className="vf-formbox-q">
                       <div className="qnum">{i + 1}</div>
                       <div className="qmain">
-                        <div className="qlabel">{f.label}</div>
-                        <div className="qvalue">{String(f.value ?? "")}</div>
+                        <div className="qlabel">
+                          {f.label}
+                        </div>
+                        <div className="qvalue">
+                          {(() => {
+                            const v = String(f.value ?? "");
+                            if (v.startsWith("file:")) {
+                              return (
+                                <button
+                                  type="button"
+                                  className="btn small pill"
+                                  onClick={() =>
+                                    downloadFileFromToken(v)
+                                  }
+                                >
+                                  Download file
+                                </button>
+                              );
+                            }
+                            return v;
+                          })()}
+                        </div>
                       </div>
                     </div>
                   ));
@@ -565,9 +990,30 @@ const FIELD_TYPES = [
   return (
     <div className="vf-root">
       <div className="vf-tabs" role="tablist" aria-label="View Form Tabs">
-        <button role="tab" aria-selected={tab === "config"} className={`tab ${tab === "config" ? "active" : ""}`} onClick={() => setTab("config")}>Form Configuration</button>
-        <button role="tab" aria-selected={tab === "layout"} className={`tab ${tab === "layout" ? "active" : ""}`} onClick={() => setTab("layout")}>Form Layout</button>
-        <button role="tab" aria-selected={tab === "responses"} className={`tab ${tab === "responses" ? "active" : ""}`} onClick={() => setTab("responses")}>Responses</button>
+        <button
+          role="tab"
+          aria-selected={tab === "config"}
+          className={`tab ${tab === "config" ? "active" : ""}`}
+          onClick={() => setTab("config")}
+        >
+          Form Configuration
+        </button>
+        <button
+          role="tab"
+          aria-selected={tab === "layout"}
+          className={`tab ${tab === "layout" ? "active" : ""}`}
+          onClick={() => setTab("layout")}
+        >
+          Form Layout
+        </button>
+        <button
+          role="tab"
+          aria-selected={tab === "responses"}
+          className={`tab ${tab === "responses" ? "active" : ""}`}
+          onClick={() => setTab("responses")}
+        >
+          Responses
+        </button>
       </div>
 
       {loading ? (
