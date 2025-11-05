@@ -71,7 +71,11 @@ beforeAll(() => {
 // --- Reset spies & storage between tests ---
 beforeEach(() => {
   vi.restoreAllMocks(); // restores spies created with vi.spyOn / vi.fn().mock...
-  localStorage.clear();
+  
+  // Check if localStorage exists and has clear method before calling it
+  if (global.localStorage && typeof global.localStorage.clear === 'function') {
+    global.localStorage.clear();
+  }
 });
 global.IS_REACT_ACT_ENVIRONMENT = false;
 // --- Cleanup DOM after each test ---
