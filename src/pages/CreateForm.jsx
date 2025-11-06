@@ -13,6 +13,7 @@ import date from "../assets/date.png";
 import dropdown from "../assets/dropdown.png";
 import file from "../assets/files.png";
 import number from "../assets/number.png";
+import Calendar from "../assets/Calendar.png";  
 
 const uid = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -472,7 +473,7 @@ export default function CreateForm() {
                   color: "#6B7280",
                 }}
               >
-                📅
+                <img src={Calendar} alt="" style={{width:20, height:20}}/>
               </span>
             </div>
             <div

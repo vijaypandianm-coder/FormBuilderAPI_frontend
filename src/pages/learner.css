@@ -478,12 +478,6 @@ textarea.fs-input{ min-height:88px; resize:vertical; }
   gap: 8px;
 }
 
-.vf-page .btn.small.pill {
-  min-width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  padding: 0 8px;
-}
 
 /* ===== Submit Success Dialog (Learner) ===== */
 

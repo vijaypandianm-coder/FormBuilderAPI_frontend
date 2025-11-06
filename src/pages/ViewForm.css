@@ -188,7 +188,8 @@
   padding:8px 12px; cursor:pointer; font-weight:600;
 }
 .btn.small{ padding:6px 12px; height:32px; }
-.btn.pill{ border-radius:999px; }
+.btn.pill{background-color: #5D38DF;
+    color: #fff;}
 .btn.primary{ background:var(--primary); border-color:var(--primary); color:#FFF; }
 .btn.primary:hover{ background:var(--primary-ink); border-color:var(--primary-ink); }
 .btn.outline-primary{ color:#5D38DF; border-color:#DADCF9; background:#FFF; }
@@ -297,11 +298,4 @@
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.vf-page .btn.small.pill {
-  min-width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  padding: 0 8px;
 }
