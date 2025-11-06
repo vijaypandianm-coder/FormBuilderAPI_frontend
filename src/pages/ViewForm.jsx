@@ -131,6 +131,225 @@ async function downloadFileFromToken(tokenRaw) {
   }
 }
 
+/* ---------- helpers for labels & choice options ---------- */
+
+const normalizeType = (t = "") => t.toString().trim().toLowerCase();
+
+const isChoiceType = (t = "") => {
+  const lt = normalizeType(t);
+  return (
+    lt === "dropdown" ||
+    lt === "radio" ||
+    lt === "checkbox" ||
+    lt === "multiselect" ||
+    lt === "multi-select" ||
+    lt === "multi select" ||
+    lt === "mcq" ||
+    lt === "multiple"
+  );
+};
+
+// build map: fieldId -> { type, isChoice, optionsById }
+function buildFieldMetaIndex(lyt) {
+  const meta = {};
+  const sections = Array.isArray(lyt?.sections)
+    ? lyt.sections
+    : Array.isArray(lyt)
+    ? lyt
+    : [];
+
+  sections.forEach((s) => {
+    (s.fields || []).forEach((f) => {
+      const fieldId =
+        f.fieldId ||
+        f.id ||
+        f.key ||
+        f.name ||
+        f.slug ||
+        f.dbKey ||
+        f.code ||
+        f.uuid;
+      if (!fieldId) return;
+
+      const type = normalizeType(f.type || "");
+      const isChoice = isChoiceType(type);
+
+      let optionsById = {};
+      if (isChoice) {
+        const src =
+          f.options ??
+          f.Options ??
+          f.choices ??
+          f.Choices ??
+          f.items ??
+          f.Items ??
+          [];
+        const arr = Array.isArray(src) ? src : [];
+        optionsById = {};
+        arr.forEach((o, i) => {
+          if (!o) return;
+          const id =
+            o.id ??
+            o.Id ??
+            o.value ??
+            o.Value ??
+            `opt_${i + 1}`;
+          const text =
+            o.text ??
+            o.Text ??
+            o.label ??
+            o.Label ??
+            o.value ??
+            o.Value ??
+            id;
+          optionsById[String(id)] = String(text);
+        });
+      }
+
+      meta[String(fieldId)] = { type, isChoice, optionsById };
+    });
+  });
+
+  return meta;
+}
+
+/* ---------- label key helpers ---------- */
+
+const normalizeKey = (k) => {
+  if (k == null) return "";
+  const s = String(k);
+  const last = s.split(/[\/:\.]/).pop();
+  const hexTail = last.match(/[a-f0-9]{24,32}$/i);
+  return (hexTail ? hexTail[0] : last).toLowerCase();
+};
+
+const buildLabelIndex = (lyt) => {
+  const idx = {};
+  const sections = Array.isArray(lyt?.sections)
+    ? lyt.sections
+    : Array.isArray(lyt)
+    ? lyt
+    : [];
+  sections.forEach((s) => {
+    const fields = Array.isArray(s?.fields) ? s.fields : [];
+    fields.forEach((f) => {
+      const label = f.label || f.name || "Untitled";
+      const candidates = [
+        f.fieldId,
+        f.id,
+        f.key,
+        f.name,
+        f.slug,
+        f.dbKey,
+        f.code,
+        f.uuid,
+      ].filter(Boolean);
+      candidates.forEach((k) => {
+        const raw = String(k);
+        idx[raw] = label;
+        idx[raw.toLowerCase()] = label;
+        idx[normalizeKey(raw)] = label;
+      });
+    });
+  });
+  return idx;
+};
+
+const resolveLabel = (fieldId, fallbacks, labelIndex, lyt) => {
+  const raw = fieldId != null ? String(fieldId) : "";
+  const norm = normalizeKey(raw);
+
+  if (labelIndex[raw]) return labelIndex[raw];
+  if (labelIndex[raw.toLowerCase()]) return labelIndex[raw.toLowerCase()];
+  if (labelIndex[norm]) return labelIndex[norm];
+
+  const hit = Object.keys(labelIndex).find((k) => {
+    const kn = normalizeKey(k);
+    return (
+      raw.endsWith(k) ||
+      raw.toLowerCase().endsWith(k.toLowerCase()) ||
+      norm === kn ||
+      norm.endsWith(kn)
+    );
+  });
+  if (hit) return labelIndex[hit];
+
+  const sections = Array.isArray(lyt?.sections)
+    ? lyt.sections
+    : Array.isArray(lyt)
+    ? lyt
+    : [];
+  for (const s of sections) {
+    for (const f of s?.fields || []) {
+      const keys = [
+        f.fieldId,
+        f.id,
+        f.key,
+        f.name,
+        f.slug,
+        f.dbKey,
+        f.code,
+        f.uuid,
+      ]
+        .filter(Boolean)
+        .map(String);
+      if (
+        keys.some((k) => {
+          const kn = normalizeKey(k);
+          return (
+            raw.endsWith(k) ||
+            raw.toLowerCase().endsWith(k.toLowerCase()) ||
+            norm === kn ||
+            norm.endsWith(kn)
+          );
+        })
+      ) {
+        return f.label || f.name || "Untitled";
+      }
+    }
+  }
+  return (
+    fallbacks.fieldLabel ||
+    fallbacks.label ||
+    fallbacks.questionLabel ||
+    raw
+  );
+};
+
+/* ---------- username helpers ---------- */
+
+const safeJson = async (url, signal) => {
+  try {
+    const r = await fetch(url, { signal });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+};
+
+const normalizeBulkUsers = (data) => {
+  if (!data) return {};
+  if (Array.isArray(data)) {
+    const out = {};
+    data.forEach((u) => {
+      if (u && u.id !== undefined) {
+        out[u.id] = u.name || u.username || `User ${u.id}`;
+      }
+    });
+    return out;
+  }
+  const out = {};
+  Object.entries(data).forEach(([id, name]) => {
+    const n =
+      typeof name === "string"
+        ? name
+        : name?.name || name?.username;
+    out[Number(id)] = n || `User ${id}`;
+  });
+  return out;
+};
+
 export default function ViewForm() {
   const { formKey } = useParams();
   const q = useQuery();
@@ -186,141 +405,6 @@ export default function ViewForm() {
       alive = false;
     };
   }, [formKey]);
-
-  /* ---------------- label helpers ---------------- */
-  const normalizeKey = (k) => {
-    if (k == null) return "";
-    const s = String(k);
-    const last = s.split(/[\/:\.]/).pop();
-    const hexTail = last.match(/[a-f0-9]{24,32}$/i);
-    return (hexTail ? hexTail[0] : last).toLowerCase();
-  };
-
-  const buildLabelIndex = (lyt) => {
-    const idx = {};
-    const sections = Array.isArray(lyt?.sections)
-      ? lyt.sections
-      : Array.isArray(lyt)
-      ? lyt
-      : [];
-    sections.forEach((s) => {
-      const fields = Array.isArray(s?.fields) ? s.fields : [];
-      fields.forEach((f) => {
-        const label = f.label || f.name || "Untitled";
-        const candidates = [
-          f.fieldId,
-          f.id,
-          f.key,
-          f.name,
-          f.slug,
-          f.dbKey,
-          f.code,
-          f.uuid,
-        ].filter(Boolean);
-        candidates.forEach((k) => {
-          const raw = String(k);
-          idx[raw] = label;
-          idx[raw.toLowerCase()] = label;
-          idx[normalizeKey(raw)] = label;
-        });
-      });
-    });
-    return idx;
-  };
-
-  const resolveLabel = (fieldId, fallbacks, labelIndex, lyt) => {
-    const raw = fieldId != null ? String(fieldId) : "";
-    const norm = normalizeKey(raw);
-
-    if (labelIndex[raw]) return labelIndex[raw];
-    if (labelIndex[raw.toLowerCase()]) return labelIndex[raw.toLowerCase()];
-    if (labelIndex[norm]) return labelIndex[norm];
-
-    const hit = Object.keys(labelIndex).find((k) => {
-      const kn = normalizeKey(k);
-      return (
-        raw.endsWith(k) ||
-        raw.toLowerCase().endsWith(k.toLowerCase()) ||
-        norm === kn ||
-        norm.endsWith(kn)
-      );
-    });
-    if (hit) return labelIndex[hit];
-
-    const sections = Array.isArray(lyt?.sections)
-      ? lyt.sections
-      : Array.isArray(lyt)
-      ? lyt
-      : [];
-    for (const s of sections) {
-      for (const f of s?.fields || []) {
-        const keys = [
-          f.fieldId,
-          f.id,
-          f.key,
-          f.name,
-          f.slug,
-          f.dbKey,
-          f.code,
-          f.uuid,
-        ]
-          .filter(Boolean)
-          .map(String);
-        if (
-          keys.some((k) => {
-            const kn = normalizeKey(k);
-            return (
-              raw.endsWith(k) ||
-              raw.toLowerCase().endsWith(k.toLowerCase()) ||
-              norm === kn ||
-              norm.endsWith(kn)
-            );
-          })
-        ) {
-          return f.label || f.name || "Untitled";
-        }
-      }
-    }
-    return (
-      fallbacks.fieldLabel ||
-      fallbacks.label ||
-      fallbacks.questionLabel ||
-      raw
-    );
-  };
-
-  /* ---------------- username helpers ---------------- */
-  const safeJson = async (url, signal) => {
-    try {
-      const r = await fetch(url, { signal });
-      if (!r.ok) return null;
-      return await r.json();
-    } catch {
-      return null;
-    }
-  };
-
-  const normalizeBulkUsers = (data) => {
-    if (!data) return {};
-    if (Array.isArray(data)) {
-      const out = {};
-      data.forEach((u) => {
-        if (u && u.id !== undefined) {
-          out[u.id] = u.name || u.username || `User ${u.id}`;
-        }
-      });
-      return out;
-    }
-    const out = {};
-    Object.entries(data).forEach(([id, name]) => {
-      const n =
-        typeof name === "string"
-          ? name
-          : name?.name || name?.username;
-      out[Number(id)] = n || `User ${id}`;
-    });
-    return out;
-  };
 
   const fetchUsernamesIfMissing = async (ids, signal) => {
     const missing = ids.filter((id) => !(id in userNameMap));
@@ -381,7 +465,9 @@ export default function ViewForm() {
 
         const flat = await ResponsesApi.list(Number(formKey));
 
+        // indexes from layout
         const labelIdx = buildLabelIndex(layout);
+        const fieldMetaIndex = buildFieldMetaIndex(layout);
 
         const byId = new Map();
         flat.forEach((row) => {
@@ -393,6 +479,45 @@ export default function ViewForm() {
               fields: [],
             });
           }
+
+          const meta =
+            fieldMetaIndex[String(row.fieldId)] ||
+            fieldMetaIndex[row.fieldId] ||
+            {};
+          const rawVal = row.answerValue ?? "";
+          let displayValue = rawVal;
+
+          // Convert stored option IDs -> option text(s) for choice fields
+          if (meta.isChoice && rawVal) {
+            let ids = [];
+
+            const trimmed = String(rawVal).trim();
+            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+              try {
+                const parsed = JSON.parse(trimmed);
+                if (Array.isArray(parsed)) {
+                  ids = parsed.map((x) => String(x));
+                } else if (parsed != null) {
+                  ids = [String(parsed)];
+                }
+              } catch {
+                ids = [trimmed];
+              }
+            } else if (trimmed.includes(",")) {
+              ids = trimmed
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean);
+            } else {
+              ids = [trimmed];
+            }
+
+            const texts = ids.map(
+              (id) => meta.optionsById?.[String(id)] || id
+            );
+            displayValue = texts.join(", ");
+          }
+
           byId.get(row.responseId).fields.push({
             fieldId: row.fieldId,
             label: resolveLabel(
@@ -401,7 +526,8 @@ export default function ViewForm() {
               labelIdx,
               layout
             ),
-            value: row.answerValue,
+            value: displayValue,
+            rawValue: rawVal,
           });
         });
 
@@ -784,7 +910,7 @@ export default function ViewForm() {
                     <th>User Id</th>
                     <th>Used In</th>
                     <th>Submitted On</th>
-                    <th>Email</th>
+                    {/* Email column removed */}
                     <th>Response</th>
                   </tr>
                 </thead>
@@ -805,7 +931,7 @@ export default function ViewForm() {
                             ).toLocaleString()
                           : "—"}
                       </td>
-                      <td>{r.email || "—"}</td>
+                      {/* Email cell removed */}
                       <td>
                         <button
                           className="btn small pill btn-view"
@@ -971,6 +1097,8 @@ export default function ViewForm() {
                                 </button>
                               );
                             }
+                            // At this point, for dropdown/checkbox/etc.,
+                            // v is already the human-readable option text(s)
                             return v;
                           })()}
                         </div>

@@ -1,599 +1,585 @@
-// ✅ tests/pages/AdminDashboard.test.jsx
+// tests/pages/AdminDashboard.test.jsx
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import "@testing-library/jest-dom/vitest";
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
 
-//
-// 🔹 Global mocks
-//
+// ---------- Mocks ----------
 
-// track navigation calls
-const mockNavigate = vi.fn();
+let mockNavigate;
 
-// mock react-router-dom's useNavigate (we don't need a real Router)
-vi.mock("react-router-dom", async (orig) => {
-  const actual = await orig();
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
   return {
     ...actual,
     useNavigate: () => mockNavigate,
   };
 });
 
-// mock AdminFormCard so we can drive callbacks easily and inspect props
-vi.mock("@src/components/AdminFormCard", () => ({
+vi.mock("../../src/components/AdminFormCard.jsx", () => ({
   default: ({ form, onView, onConfig, onEdit, onClone, onDelete }) => (
     <div data-testid={`card-${form.id}`}>
-      <span data-testid={`title-${form.id}`}>{form.title}</span>
-      <span data-testid={`status-${form.id}`}>{form.status}</span>
-      <div data-testid={`meta-${form.id}`}>
-        {(form.meta || []).map((m) => `${m.k}:${m.v}`).join("|")}
-      </div>
-      <button data-testid={`view-${form.id}`} onClick={onView}>View</button>
-      <button data-testid={`config-${form.id}`} onClick={onConfig}>Config</button>
-      <button data-testid={`edit-${form.id}`} onClick={onEdit}>Edit</button>
-      <button data-testid={`clone-${form.id}`} onClick={onClone}>Clone</button>
-      <button data-testid={`delete-${form.id}`} onClick={onDelete}>Delete</button>
+      <div>{form.title}</div>
+      <button onClick={onView}>view</button>
+      <button onClick={onConfig}>config</button>
+      <button onClick={onEdit}>edit</button>
+      <button onClick={onClone}>clone</button>
+      <button onClick={onDelete}>delete</button>
     </div>
   ),
 }));
 
-// mock API services
-vi.mock("@src/api/forms", () => ({
-  FormService: {
-    list: vi.fn(),
-    clone: vi.fn(),
-    remove: vi.fn(),
+vi.mock("../../src/components/ConfirmDialog.jsx", () => ({
+  default: ({ open, title, body, onCancel, onConfirm }) => {
+    if (!open) return null;
+    return (
+      <div data-testid={`dialog-${title}`}>
+        <div>{title}</div>
+        <div>{body}</div>
+        <button onClick={onCancel}>cancel</button>
+        <button onClick={onConfirm}>confirm</button>
+      </div>
+    );
   },
 }));
 
-vi.mock("@src/api/auth", () => ({
+vi.mock("../../src/api/http", () => ({
+  apiFetch: vi.fn(),
+}));
+
+vi.mock("../../src/api/auth", () => ({
   AuthService: {
     isAuthenticated: vi.fn(),
+    getToken: vi.fn(),
   },
 }));
 
-// handy access to mocks
-const { FormService } = await import("@src/api/forms");
-const { AuthService } = await import("@src/api/auth");
+vi.mock("../../src/api/forms", () => ({
+  FormService: {
+    remove: vi.fn(),
+    clone: vi.fn(),
+    updateMeta: vi.fn(),
+    updateStatus: vi.fn(),
+  },
+}));
 
-//
-// 🔹 Safe localStorage mock (JSDOM-safe)
-//
+// ---------- Imports after mocks ----------
+import AdminDashboard from "../../src/pages/AdminDashboard.jsx";
+import { apiFetch } from "../../src/api/http";
+import { AuthService } from "../../src/api/auth";
+import { FormService } from "../../src/api/forms";
 
-const localStore = {};
-const setItemSpy = vi.fn((key, value) => { localStore[key] = String(value); });
-const getItemSpy = vi.fn((key) => (key in localStore ? localStore[key] : null));
-const removeItemSpy = vi.fn((key) => { delete localStore[key]; });
-const clearSpy = vi.fn(() => { for (const k in localStore) delete localStore[k]; });
+const flushPromises = () => new Promise((res) => setTimeout(res, 0));
 
-Object.defineProperty(window, "localStorage", {
-  value: { setItem: setItemSpy, getItem: getItemSpy, removeItem: removeItemSpy, clear: clearSpy },
-  writable: true,
-});
+describe("<AdminDashboard />", () => {
+  let alertSpy;
+  let warnSpy;
 
-//
-// 🔹 Tests
-//
-describe("AdminDashboard", () => {
   beforeEach(() => {
+    mockNavigate = vi.fn();
+    localStorage.clear();
     vi.clearAllMocks();
-    mockNavigate.mockReset();
-    for (const k in localStore) delete localStore[k];
-  });
-
-  async function renderDashboard() {
-    const { default: AdminDashboard } = await import("@src/pages/AdminDashboard.jsx");
-    return render(<AdminDashboard />);
-  }
-
-  it("shows unauthenticated banner and sign-in flow when not authenticated", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
-    FormService.list.mockResolvedValue({ items: [] });
-
-    await renderDashboard();
-
-    expect(await screen.findByText(/You are not authenticated \(401\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Sign in to view forms\./i)).toBeInTheDocument();
-
-    const search = screen.getByPlaceholderText("Search");
-    expect(search).toBeDisabled();
-
-    const signInBtn = screen.getByRole("button", { name: /Sign in/i });
-    fireEvent.click(signInBtn);
-    expect(mockNavigate).toHaveBeenCalledWith("/login", { state: { from: "/" } });
-  });
-
-  it("loads forms from API when authenticated and maps fields correctly", async () => {
     AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue({
-      items: [
-        {
-          formKey: "k1",
-          title: "First Form",
-          status: "Published",
-          createdAt: "2024-01-01T00:00:00Z",
-          createdByName: "Alice",
-          publishedAt: "2024-01-02T00:00:00Z",
-        },
-        {
-          FormKey: "k2",
-          Title: "Second Form",
-          Status: "Draft",
-          created_on: "2024-01-03T00:00:00Z",
-          createdBy: 0,
-        },
-      ],
-      total: 2
+    alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    alertSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  const makeApiOkOnce = (items = [], total = undefined) => {
+    apiFetch.mockResolvedValueOnce({
+      items,
+      total: total ?? items.length,
     });
+  };
 
-    await renderDashboard();
-
-    const card1 = await screen.findByTestId("card-k1");
-    const card2 = screen.getByTestId("card-k2");
-    expect(card1).toBeInTheDocument();
-    expect(card2).toBeInTheDocument();
-    expect(screen.getByTestId("title-k1").textContent).toBe("First Form");
-    expect(screen.getByTestId("meta-k2").textContent).toMatch(/Created By:Admin/);
-  });
-
-  it("handles different API response formats correctly", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue([
+  it("renders API forms, supports search, pagination, and Create Form navigation", async () => {
+    const forms = [
       {
-        key: "k3",
-        title: "Third Form",
+        formKey: "F1",
+        title: "First Form",
+        status: "Draft",
+        createdAt: new Date().toISOString(),
+        createdByName: "Alice",
+      },
+      {
+        formKey: "F2",
+        title: "Second Form",
         status: "Published",
-        createdAt: "2024-01-01T00:00:00Z",
-        ownerName: "Bob",
+        createdAt: new Date().toISOString(),
+        createdByName: "Bob",
       },
-      {
-        key: "k4",
-        title: "Fourth Form",
-        status: "Draft",
-        createdAt: "2024-01-03T00:00:00Z",
-        ownerEmail: "user@example.com",
-      },
-      {
-        key: "k5",
-        // No title
-        status: "Draft",
-        createdAt: "2024-01-03T00:00:00Z",
-        OwnerName: "",
-      }
-    ]);
+    ];
 
-    await renderDashboard();
+    // 1) Initial load: both forms
+    // 2) After pageSize change: both forms again
+    // 3) After search=q "second": only Second Form
+    apiFetch
+      .mockResolvedValueOnce({ items: forms, total: 2 })
+      .mockResolvedValueOnce({ items: forms, total: 2 })
+      .mockResolvedValueOnce({ items: [forms[1]], total: 1 });
 
-    const card3 = await screen.findByTestId("card-k3");
-    const card4 = screen.getByTestId("card-k4");
-    const card5 = screen.getByTestId("card-k5");
-    
-    expect(card3).toBeInTheDocument();
-    expect(card4).toBeInTheDocument();
-    expect(card5).toBeInTheDocument();
-    
-    expect(screen.getByTestId("title-k3").textContent).toBe("Third Form");
-    expect(screen.getByTestId("meta-k3").textContent).toMatch(/Created By:Bob/);
-    
-    expect(screen.getByTestId("title-k4").textContent).toBe("Fourth Form");
-    expect(screen.getByTestId("meta-k4").textContent).toMatch(/Created By:user@example.com/);
-    
-    expect(screen.getByTestId("title-k5").textContent).toBe("Untitled Form");
-    expect(screen.getByTestId("meta-k5").textContent).toMatch(/Created By:Admin/);
-  });
+    render(<AdminDashboard />);
 
-  it("handles Items/Total capitalization in API response", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue({
-      Items: [
-        { formKey: "i1", title: "Item Form 1" },
-        { formKey: "i2", title: "Item Form 2" }
-      ],
-      Total: 2
-    });
+    // wait until first data load happens
+    await waitFor(() =>
+      expect(apiFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/Admin/forms?")
+      )
+    );
 
-    await renderDashboard();
-
-    const card1 = await screen.findByTestId("card-i1");
-    const card2 = screen.getByTestId("card-i2");
-    
-    expect(card1).toBeInTheDocument();
-    expect(card2).toBeInTheDocument();
-  });
-
-  it("filters forms by search query", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue({
-      items: [
-        { formKey: "a", title: "React Basics" },
-        { formKey: "b", title: "Docker 101" },
-      ],
-    });
-
-    await renderDashboard();
-    await screen.findByTestId("card-a");
-
-    const search = screen.getByPlaceholderText("Search");
-    fireEvent.change(search, { target: { value: "docker" } });
-
-    // Wait for the API call with the search term
+    // The two cards should be present initially
     await waitFor(() => {
-      expect(FormService.list).toHaveBeenCalledWith(expect.objectContaining({ q: "docker" }));
+      expect(screen.getByText("First Form")).toBeInTheDocument();
+      expect(screen.getByText("Second Form")).toBeInTheDocument();
+    });
+
+    // pagination text uses server total
+    expect(screen.getByText("1 of 1")).toBeInTheDocument();
+
+    // change items per page (triggers second apiFetch call)
+    fireEvent.change(screen.getByDisplayValue("10"), {
+      target: { value: "25" },
+    });
+
+    // Just ensure the second call occurred; we don't care about DOM effect here
+    await waitFor(() => {
+      expect(apiFetch).toHaveBeenCalledTimes(2);
+    });
+
+    // search filters; this triggers the 3rd apiFetch with &search=second
+    fireEvent.change(screen.getByPlaceholderText("Search"), {
+      target: { value: "second" },
+    });
+
+    await waitFor(() => {
+      // Only "Second Form" should remain visible
+      expect(screen.queryByText("First Form")).not.toBeInTheDocument();
+      expect(screen.getByText("Second Form")).toBeInTheDocument();
+    });
+
+    // Create Form button
+    fireEvent.click(screen.getByText("Create Form"));
+    expect(mockNavigate).toHaveBeenCalledWith("/create-form", {
+      state: { tab: "config" },
     });
   });
 
-  it("handles Unauthorized API error by showing login prompt", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockRejectedValue(new Error("401 Unauthorized"));
+  it("shows not-authenticated banner when AuthService returns false and sign-in navigates", async () => {
+    AuthService.isAuthenticated.mockReturnValue(false);
+    apiFetch.mockReset(); // shouldn't be called
 
-    await renderDashboard();
+    render(<AdminDashboard />);
 
-    expect(await screen.findByText(/You are not authenticated \(401\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Sign in to view forms\./i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search")).toBeDisabled();
+    expect(
+      screen.getByText(/You are not authenticated \(401\)/i)
+    ).toBeInTheDocument();
+
+    const btn = screen.getByText("Sign in");
+    fireEvent.click(btn);
+
+    expect(mockNavigate).toHaveBeenCalledWith("/login", {
+      state: { from: "/" },
+    });
   });
 
-  it("handles Forbidden API error by showing login prompt", async () => {
+  it("handles API auth error (401/403) by clearing forms and showing banner", async () => {
     AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockRejectedValue(new Error("403 Forbidden"));
+    apiFetch.mockRejectedValue(new Error("401 Unauthorized"));
 
-    await renderDashboard();
+    render(<AdminDashboard />);
 
-    expect(await screen.findByText(/You are not authenticated \(401\)/i)).toBeInTheDocument();
+    await flushPromises();
+
+    expect(
+      screen.getByText(/You are not authenticated \(401\)/i)
+    ).toBeInTheDocument();
+    // no cards, because forms cleared
+    expect(screen.queryByTestId(/^card-/)).not.toBeInTheDocument();
   });
 
   it("falls back to local drafts when API fails with non-auth error", async () => {
     AuthService.isAuthenticated.mockReturnValue(true);
-    const draft = { id: 1, title: "Local Draft", status: "Draft", createdAt: "2024-05-01T00:00:00Z", createdBy: "LocalUser" };
-    window.localStorage.setItem("fb_forms", JSON.stringify([draft]));
-    FormService.list.mockRejectedValue(new Error("Network down"));
-
-    await renderDashboard();
-
-    expect(await screen.findByText(/API not reachable — showing local drafts/i)).toBeInTheDocument();
-    expect(await screen.findByTestId("card-1")).toBeInTheDocument();
-    expect(getItemSpy).toHaveBeenCalledWith("fb_forms");
-  });
-
-  it("handles empty or invalid localStorage data", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    window.localStorage.setItem("fb_forms", "invalid json");
-    FormService.list.mockRejectedValue(new Error("Network down"));
-
-    await renderDashboard();
-
-    expect(await screen.findByText(/API not reachable — showing local drafts/i)).toBeInTheDocument();
-    expect(screen.getByText(/No forms found\./i)).toBeInTheDocument();
-  });
-
-  it("navigates correctly from Create Form button", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue({ items: [] });
-
-    await renderDashboard();
-
-    const btn = await screen.findByRole("button", { name: /Create Form/i });
-    fireEvent.click(btn);
-    expect(mockNavigate).toHaveBeenCalledWith("/create-form", { state: { tab: "config" } });
-  });
-
-  it("navigates to responses/config/editor for API forms via card actions", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue({ items: [{ formKey: "abc123", title: "API Form" }] });
-
-    await renderDashboard();
-    await screen.findByTestId("card-abc123");
-
-    fireEvent.click(screen.getByTestId("view-abc123"));
-    expect(mockNavigate).toHaveBeenCalledWith("/admin/forms/abc123?tab=responses");
-
-    fireEvent.click(screen.getByTestId("config-abc123"));
-    expect(mockNavigate).toHaveBeenCalledWith("/admin/forms/abc123?tab=config");
-
-    fireEvent.click(screen.getByTestId("edit-abc123"));
-    expect(mockNavigate).toHaveBeenCalledWith("/create-form", {
-      state: { tab: "layout", formKey: "abc123" },
-    });
-  });
-
-  it("shows alert and does not navigate when viewing local draft", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    const draft = { id: 10, title: "Offline Draft", status: "Draft", createdBy: "LocalUser" };
-    window.localStorage.setItem("fb_forms", JSON.stringify([draft]));
-    FormService.list.mockRejectedValue(new Error("Network down"));
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
-
-    await renderDashboard();
-    await screen.findByTestId("card-10");
-
-    fireEvent.click(screen.getByTestId("view-10"));
-    fireEvent.click(screen.getByTestId("config-10"));
-
-    expect(alertSpy).toHaveBeenCalled();
-    expect(mockNavigate).not.toHaveBeenCalled();
-  });
-
-  it("clones API form via FormService.clone and prepends copy", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue({ items: [{ formKey: "orig", title: "Original" }] });
-    FormService.clone.mockResolvedValue({ formKey: "cloned-key" });
-
-    await renderDashboard();
-    await screen.findByTestId("card-orig");
-
-    fireEvent.click(screen.getByTestId("clone-orig"));
-
-    await waitFor(() => {
-      expect(screen.getByText("Original (Copy)")).toBeInTheDocument();
-    });
-  });
-
-  it("handles clone API returning incomplete data", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue({ items: [{ formKey: "orig3", title: "Original 3" }] });
-    FormService.clone.mockResolvedValue({}); // No formKey returned
-
-    await renderDashboard();
-    await screen.findByTestId("card-orig3");
-
-    fireEvent.click(screen.getByTestId("clone-orig3"));
-
-    await waitFor(() => {
-      expect(screen.getByText("Original 3 (Copy)")).toBeInTheDocument();
-      const newCardId = screen.getByText("Original 3 (Copy)").closest("div").getAttribute("data-testid");
-      expect(newCardId).toContain("orig3-copy");
-    });
-  });
-
-  it("falls back to local clone when API clone fails", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue({ items: [{ formKey: "orig2", title: "Form2" }] });
-    FormService.clone.mockRejectedValue(new Error("clone API down"));
-
-    await renderDashboard();
-    await screen.findByTestId("card-orig2");
-
-    fireEvent.click(screen.getByTestId("clone-orig2"));
-
-    await waitFor(() => {
-      expect(screen.getByText("Form2 (Copy)")).toBeInTheDocument();
-    });
-
-    expect(setItemSpy).toHaveBeenCalledWith(
+    localStorage.setItem(
       "fb_forms",
-      expect.stringContaining("Form2 (Copy)")
+      JSON.stringify([
+        {
+          id: "loc1",
+          title: "Local Draft",
+          status: "Draft",
+          createdAt: new Date().toISOString(),
+          createdBy: "Local Admin",
+        },
+      ])
     );
-  });
+    apiFetch.mockRejectedValue(new Error("Network error"));
 
-  it("clones local draft form correctly", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    const draft = { id: 20, title: "Local Form", status: "Draft" };
-    window.localStorage.setItem("fb_forms", JSON.stringify([draft]));
-    FormService.list.mockRejectedValue(new Error("Network down"));
+    render(<AdminDashboard />);
 
-    await renderDashboard();
-    await screen.findByTestId("card-20");
+    await flushPromises();
 
-    fireEvent.click(screen.getByTestId("clone-20"));
+    expect(
+      screen.getByText(/API not reachable — showing local drafts/i)
+    ).toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(screen.getByText("Local Form (Copy)")).toBeInTheDocument();
-    });
-    
-    expect(setItemSpy).toHaveBeenCalledWith(
-      "fb_forms",
-      expect.stringContaining("Local Form (Copy)")
+    // local draft card
+    expect(screen.getByText("Local Draft")).toBeInTheDocument();
+
+    // view responses on local → alert branch
+    fireEvent.click(screen.getByText("view"));
+    expect(alertSpy).toHaveBeenCalledWith(
+      expect.stringContaining("local draft")
     );
+
+    // delete local draft → removes from localStorage
+    fireEvent.click(screen.getByText("delete"));
+    const dlg = await screen.findByTestId("dialog-Delete Form");
+    const confirmBtn = dlg.querySelector("button:last-of-type");
+    fireEvent.click(confirmBtn);
+
+    const stored = JSON.parse(localStorage.getItem("fb_forms") || "[]");
+    expect(stored).toHaveLength(0);
   });
 
-  it("does not delete when user cancels confirm()", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue({ items: [{ formKey: "del1", title: "To Delete" }] });
-    vi.spyOn(window, "confirm").mockReturnValue(false);
-
-    await renderDashboard();
-    await screen.findByTestId("card-del1");
-
-    fireEvent.click(screen.getByTestId("delete-del1"));
-    expect(FormService.remove).not.toHaveBeenCalled();
-    expect(screen.getByTestId("card-del1")).toBeInTheDocument();
-  });
-
-  it("deletes API form and calls FormService.remove", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue({ items: [{ formKey: "del2", title: "To Delete 2" }] });
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    FormService.remove.mockResolvedValue();
-
-    await renderDashboard();
-    await screen.findByTestId("card-del2");
-
-    fireEvent.click(screen.getByTestId("delete-del2"));
-    await waitFor(() => {
-      expect(screen.queryByTestId("card-del2")).not.toBeInTheDocument();
-    });
-    expect(FormService.remove).toHaveBeenCalledWith("del2");
-  });
-
-  it("handles API delete failure gracefully", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue({ items: [{ formKey: "del3", title: "To Delete 3" }] });
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    FormService.remove.mockRejectedValue(new Error("Delete failed"));
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    await renderDashboard();
-    await screen.findByTestId("card-del3");
-
-    fireEvent.click(screen.getByTestId("delete-del3"));
-    await waitFor(() => {
-      expect(screen.queryByTestId("card-del3")).not.toBeInTheDocument();
-    });
-    expect(FormService.remove).toHaveBeenCalledWith("del3");
-    expect(console.warn).toHaveBeenCalled();
-  });
-
-  it("deletes local draft and updates localStorage", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    const draft = { id: 999, title: "Local To Delete", status: "Draft", createdBy: "LocalUser" };
-    window.localStorage.setItem("fb_forms", JSON.stringify([draft]));
-    FormService.list.mockRejectedValue(new Error("Network down"));
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-
-    await renderDashboard();
-    await screen.findByTestId("card-999");
-
-    fireEvent.click(screen.getByTestId("delete-999"));
-    await waitFor(() => {
-      expect(screen.queryByTestId("card-999")).not.toBeInTheDocument();
-    });
-    expect(setItemSpy).toHaveBeenCalledWith("fb_forms", "[]");
-  });
-
-  it("handles pagination correctly", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue({
-      items: [{ formKey: "p1", title: "Page 1 Item" }],
-      total: 25
-    });
-
-    await renderDashboard();
-    await screen.findByTestId("card-p1");
-
-    // Test next page
-    const nextButton = screen.getByText("›");
-    fireEvent.click(nextButton);
-    
-    await waitFor(() => {
-      expect(FormService.list).toHaveBeenCalledWith(expect.objectContaining({ page: 2 }));
-    });
-
-    // Test previous page
-    const prevButton = screen.getByText("‹");
-    fireEvent.click(prevButton);
-    
-    await waitFor(() => {
-      expect(FormService.list).toHaveBeenCalledWith(expect.objectContaining({ page: 1 }));
-    });
-
-    // Test changing page size
-    const pageSizeSelect = screen.getByText("10").closest("select");
-    fireEvent.change(pageSizeSelect, { target: { value: "25" } });
-    
-    await waitFor(() => {
-      expect(FormService.list).toHaveBeenCalledWith(expect.objectContaining({ 
-        pageSize: 25,
-        page: 1 // Should reset to page 1
-      }));
-    });
-  });
-
-  it("handles pagination with local forms correctly", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    // Create 15 local forms to test pagination
-    const localForms = Array.from({ length: 15 }, (_, i) => ({
-      id: i + 100,
-      title: `Local Form ${i + 1}`,
-      status: "Draft"
-    }));
-    window.localStorage.setItem("fb_forms", JSON.stringify(localForms));
-    FormService.list.mockRejectedValue(new Error("Network down"));
-
-    await renderDashboard();
-    
-    // Should show first 10 items by default
-    expect(await screen.findByTestId("card-100")).toBeInTheDocument();
-    expect(screen.queryByTestId("card-110")).not.toBeInTheDocument();
-    
-    // Go to next page
-    const nextButton = screen.getByText("›");
-    fireEvent.click(nextButton);
-    
-    // Should show remaining 5 items
-    await waitFor(() => {
-      expect(screen.queryByTestId("card-100")).not.toBeInTheDocument();
-      expect(screen.getByTestId("card-110")).toBeInTheDocument();
-    });
-    
-    // Change page size to 25
-    const pageSizeSelect = screen.getByText("10").closest("select");
-    fireEvent.change(pageSizeSelect, { target: { value: "25" } });
-    
-    // Should show all items on one page
-    await waitFor(() => {
-      expect(screen.getByTestId("card-100")).toBeInTheDocument();
-      expect(screen.getByTestId("card-114")).toBeInTheDocument();
-    });
-  });
-
-  it("handles search with local forms correctly", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    const localForms = [
-      { id: 201, title: "Apple Form", status: "Draft" },
-      { id: 202, title: "Banana Form", status: "Draft" },
-      { id: 203, title: "Cherry Form", status: "Draft" }
+  it("navigates to responses, config and editor for API forms", async () => {
+    const forms = [
+      {
+        formKey: "APIKEY1",
+        title: "API Form",
+        status: "Draft",
+        createdAt: new Date().toISOString(),
+      },
     ];
-    window.localStorage.setItem("fb_forms", JSON.stringify(localForms));
-    FormService.list.mockRejectedValue(new Error("Network down"));
+    makeApiOkOnce(forms, 1);
 
-    await renderDashboard();
-    await screen.findByTestId("card-201");
-    
-    const search = screen.getByPlaceholderText("Search");
-    fireEvent.change(search, { target: { value: "banana" } });
-    
-    await waitFor(() => {
-      expect(screen.queryByTestId("card-201")).not.toBeInTheDocument();
-      expect(screen.getByTestId("card-202")).toBeInTheDocument();
-      expect(screen.queryByTestId("card-203")).not.toBeInTheDocument();
+    render(<AdminDashboard />);
+
+    await waitFor(() => screen.getByText("API Form"));
+
+    // view responses
+    fireEvent.click(screen.getByText("view"));
+    expect(mockNavigate).toHaveBeenCalledWith(
+      "/admin/forms/APIKEY1?tab=responses"
+    );
+
+    mockNavigate.mockClear();
+
+    // config view
+    fireEvent.click(screen.getByText("config"));
+    expect(mockNavigate).toHaveBeenCalledWith(
+      "/admin/forms/APIKEY1?tab=config"
+    );
+
+    mockNavigate.mockClear();
+
+    // edit (open builder layout)
+    fireEvent.click(screen.getByText("edit"));
+    expect(mockNavigate).toHaveBeenCalledWith("/create-form", {
+      state: { tab: "layout", formKey: "APIKEY1" },
     });
   });
 
-  it("shows loading skeleton while fetching data", async () => {
+  it("handles clone for local drafts by showing alert", async () => {
+    // force usingLocal mode via API fail
     AuthService.isAuthenticated.mockReturnValue(true);
-    // Delay the API response to ensure we see the loading state
-    FormService.list.mockImplementation(() => new Promise(resolve => {
-      setTimeout(() => resolve({ items: [] }), 100);
-    }));
+    localStorage.setItem(
+      "fb_forms",
+      JSON.stringify([
+        {
+          id: "local-only",
+          title: "Local Only Form",
+          status: "Draft",
+          createdAt: new Date().toISOString(),
+          createdBy: "Admin",
+        },
+      ])
+    );
+    apiFetch.mockRejectedValue(new Error("Network error"));
 
-    const { container } = await renderDashboard();
-    
-    // Should show skeletons while loading
-    expect(container.querySelectorAll('.skeleton').length).toBeGreaterThan(0);
-    
-    // Wait for loading to complete
+    render(<AdminDashboard />);
+
+    await flushPromises();
+
+    // click clone on local draft
+    fireEvent.click(screen.getByText("clone"));
+
+    const dlg = await screen.findByTestId("dialog-Clone Form");
+
+    // Confirm clone -> should alert because no formKey
+    const confirmBtn = dlg.querySelector("button:last-of-type");
+    fireEvent.click(confirmBtn);
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      expect.stringContaining("cannot be cloned")
+    );
+    expect(FormService.clone).not.toHaveBeenCalled();
+  });
+
+  it("clones API form via clone endpoint, renames and sets draft", async () => {
+    const forms = [
+      {
+        formKey: "ORIGKEY",
+        title: "Original Form",
+        status: "Published",
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    makeApiOkOnce(forms, 1);
+
+    FormService.clone.mockResolvedValue({ formKey: "NEWKEY" });
+    FormService.updateMeta.mockResolvedValue({});
+    FormService.updateStatus.mockResolvedValue({});
+
+    render(<AdminDashboard />);
+
+    await waitFor(() => screen.getByText("Original Form"));
+
+    fireEvent.click(screen.getByText("clone"));
+
+    const dlg = await screen.findByTestId("dialog-Clone Form");
+
+    const input = dlg.querySelector(".clone-body-input");
+    fireEvent.change(input, { target: { value: "My Clone" } });
+
+    const confirmBtn = dlg.querySelector("button:last-of-type");
+    fireEvent.click(confirmBtn);
+
     await waitFor(() => {
-      expect(container.querySelectorAll('.skeleton').length).toBe(0);
+      expect(FormService.clone).toHaveBeenCalledWith("ORIGKEY");
+    });
+
+    // description is "", because AdminDashboard doesn't hold description on form object
+    expect(FormService.updateMeta).toHaveBeenCalledWith("NEWKEY", {
+      title: "My Clone",
+      description: "",
+      access: "Open",
+    });
+    expect(FormService.updateStatus).toHaveBeenCalledWith(
+      "NEWKEY",
+      "Draft"
+    );
+  });
+
+  it("deletes API form via FormService.remove and removes from UI", async () => {
+    const forms = [
+      {
+        formKey: "DELKEY",
+        title: "Delete Me",
+        status: "Draft",
+        createdAt: new Date().toISOString(),
+      },
+    ];
+
+    // First call: initial load (contains form)
+    apiFetch.mockResolvedValueOnce({
+      items: forms,
+      total: 1,
+    });
+    // Second call: after delete & refreshTick (empty list)
+    apiFetch.mockResolvedValueOnce({
+      items: [],
+      total: 0,
+    });
+
+    FormService.remove.mockResolvedValue({});
+
+    render(<AdminDashboard />);
+
+    await waitFor(() => screen.getByText("Delete Me"));
+
+    fireEvent.click(screen.getByText("delete"));
+
+    const dlg = await screen.findByTestId("dialog-Delete Form");
+    const confirmBtn = dlg.querySelector("button:last-of-type");
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() =>
+      expect(FormService.remove).toHaveBeenCalledWith("DELKEY")
+    );
+
+    // after refresh, form should no longer be present
+    await waitFor(() => {
+      expect(screen.queryByText("Delete Me")).not.toBeInTheDocument();
     });
   });
 
-  it("shows empty state when no forms are found", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue({ items: [], total: 0 });
+  // ---------- Extra tests to hit remaining branches/lines ----------
 
-    await renderDashboard();
-    
-    await waitFor(() => {
-      expect(screen.getByText("No forms found.")).toBeInTheDocument();
-    });
+  it("shows skeletons while loading before API resolves", () => {
+    // Long pending promise so loading stays true
+    apiFetch.mockReturnValue(new Promise(() => {}));
+
+    render(<AdminDashboard />);
+
+    // skeletons should be visible immediately
+    const skels = screen.getAllByText((_, el) =>
+      el.classList?.contains("skeleton")
+    );
+    expect(skels.length).toBeGreaterThan(0);
   });
 
-  it("resets component state when unmounted", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.list.mockResolvedValue({ items: [{ formKey: "test", title: "Test Form" }] });
+  it("handles delete API failure by showing alert and keeping form", async () => {
+    const forms = [
+      {
+        formKey: "FAILDEL",
+        title: "Fail Delete",
+        status: "Draft",
+        createdAt: new Date().toISOString(),
+      },
+    ];
 
-    const { unmount } = await renderDashboard();
-    await screen.findByTestId("card-test");
-    
-    // Unmount the component
-    unmount();
-    
-    // Render again with different data
-    FormService.list.mockResolvedValue({ items: [{ formKey: "new", title: "New Form" }] });
-    await renderDashboard();
-    
-    // Should show new data without interference from previous render
-    await screen.findByTestId("card-new");
-    expect(screen.queryByTestId("card-test")).not.toBeInTheDocument();
+    makeApiOkOnce(forms, 1);
+    FormService.remove.mockRejectedValue(new Error("boom"));
+
+    render(<AdminDashboard />);
+
+    await waitFor(() => screen.getByText("Fail Delete"));
+
+    fireEvent.click(screen.getByText("delete"));
+
+    const dlg = await screen.findByTestId("dialog-Delete Form");
+    const confirmBtn = dlg.querySelector("button:last-of-type");
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() =>
+      expect(alertSpy).toHaveBeenCalledWith("Failed to delete form.")
+    );
+
+    // Form should still be on screen
+    expect(screen.getByText("Fail Delete")).toBeInTheDocument();
+  });
+
+  it("allows cancelling delete dialog without removing form", async () => {
+    const forms = [
+      {
+        formKey: "CANCELDEL",
+        title: "Cancel Delete",
+        status: "Draft",
+        createdAt: new Date().toISOString(),
+      },
+    ];
+
+    makeApiOkOnce(forms, 1);
+    FormService.remove.mockResolvedValue({});
+
+    render(<AdminDashboard />);
+
+    await waitFor(() => screen.getByText("Cancel Delete"));
+
+    fireEvent.click(screen.getByText("delete"));
+
+    const dlg = await screen.findByTestId("dialog-Delete Form");
+    const cancelBtn = dlg.querySelector("button:first-of-type");
+    fireEvent.click(cancelBtn);
+
+    expect(FormService.remove).not.toHaveBeenCalled();
+    expect(screen.getByText("Cancel Delete")).toBeInTheDocument();
+  });
+
+  it("handles updateMeta failure when cloning but still proceeds", async () => {
+    const forms = [
+      {
+        formKey: "CLONE1",
+        title: "Clone Meta Fail",
+        status: "Published",
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    makeApiOkOnce(forms, 1);
+
+    FormService.clone.mockResolvedValue({ formKey: "NEWKEY2" });
+    FormService.updateMeta.mockRejectedValue(new Error("meta fail"));
+    FormService.updateStatus.mockResolvedValue({});
+
+    render(<AdminDashboard />);
+
+    await waitFor(() => screen.getByText("Clone Meta Fail"));
+
+    fireEvent.click(screen.getByText("clone"));
+
+    const dlg = await screen.findByTestId("dialog-Clone Form");
+    const confirmBtn = dlg.querySelector("button:last-of-type");
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() =>
+      expect(FormService.clone).toHaveBeenCalledWith("CLONE1")
+    );
+
+    // updateMeta failure should be logged but not break clone flow
+    expect(FormService.updateMeta).toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Rename cloned form failed:"),
+      expect.any(Error)
+    );
+
+    // updateStatus still called
+    expect(FormService.updateStatus).toHaveBeenCalledWith(
+      "NEWKEY2",
+      "Draft"
+    );
+  });
+
+  it("handles clone endpoint failure by alerting user", async () => {
+    const forms = [
+      {
+        formKey: "CLONEFAIL",
+        title: "Clone Fails",
+        status: "Draft",
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    makeApiOkOnce(forms, 1);
+
+    FormService.clone.mockRejectedValue(new Error("clone boom"));
+
+    render(<AdminDashboard />);
+
+    await waitFor(() => screen.getByText("Clone Fails"));
+
+    fireEvent.click(screen.getByText("clone"));
+
+    const dlg = await screen.findByTestId("dialog-Clone Form");
+    const confirmBtn = dlg.querySelector("button:last-of-type");
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() =>
+      expect(alertSpy).toHaveBeenCalledWith(
+        "Failed to clone form. Please try again."
+      )
+    );
+
+    // updateMeta/updateStatus should not be called
+    expect(FormService.updateMeta).not.toHaveBeenCalled();
+    expect(FormService.updateStatus).not.toHaveBeenCalled();
+  });
+
+  it("allows cancelling clone dialog without calling clone", async () => {
+    const forms = [
+      {
+        formKey: "CANCELCLONE",
+        title: "Cancel Clone",
+        status: "Draft",
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    makeApiOkOnce(forms, 1);
+
+    FormService.clone.mockResolvedValue({ formKey: "WONTUSE" });
+
+    render(<AdminDashboard />);
+
+    await waitFor(() => screen.getByText("Cancel Clone"));
+
+    fireEvent.click(screen.getByText("clone"));
+
+    const dlg = await screen.findByTestId("dialog-Clone Form");
+    const cancelBtn = dlg.querySelector("button:first-of-type");
+    fireEvent.click(cancelBtn);
+
+    expect(FormService.clone).not.toHaveBeenCalled();
+    expect(screen.getByText("Cancel Clone")).toBeInTheDocument();
   });
 });

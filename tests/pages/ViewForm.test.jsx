@@ -113,15 +113,15 @@ describe("ViewForm page", () => {
     description: "A form with no sections",
     status: "Draft",
     layout: {
-      sections: []
-    }
+      sections: [],
+    },
   };
 
   const mockFormWithoutSections = {
     title: "No Sections Form",
     description: "A form without sections array",
     status: "Draft",
-    layout: {}
+    layout: {},
   };
 
   it("renders loading then form config", async () => {
@@ -236,7 +236,9 @@ describe("ViewForm page", () => {
     fireEvent.change(pageSizeSelect, { target: { value: "25" } });
 
     // Search by user id triggers filtering logic
-    const searchInput = screen.getByPlaceholderText(/search by name\/user id/i);
+    const searchInput = screen.getByPlaceholderText(
+      /search by name\/user id/i
+    );
     fireEvent.change(searchInput, { target: { value: "101" } });
 
     await waitFor(() => {
@@ -251,7 +253,9 @@ describe("ViewForm page", () => {
 
     // Filter / Export buttons (just ensure they are there and clickable)
     fireEvent.click(screen.getByRole("button", { name: /filter/i }));
-    fireEvent.click(screen.getByRole("button", { name: /export to excel/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /export to excel/i })
+    );
 
     expect(window.alert).toHaveBeenCalledTimes(2);
   });
@@ -363,7 +367,9 @@ describe("ViewForm page", () => {
   // NEW TEST: Test error handling in responses tab
   it("handles error when fetching responses", async () => {
     FormService.get.mockResolvedValueOnce(mockForm);
-    ResponsesApi.list.mockRejectedValueOnce(new Error("Failed to load responses"));
+    ResponsesApi.list.mockRejectedValueOnce(
+      new Error("Failed to load responses")
+    );
 
     render(
       <MemoryRouter>
@@ -377,7 +383,9 @@ describe("ViewForm page", () => {
     fireEvent.click(screen.getByRole("tab", { name: /responses/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("Failed to load responses")).toBeInTheDocument();
+      expect(
+        screen.getByText("Failed to load responses")
+      ).toBeInTheDocument();
     });
   });
 
@@ -391,7 +399,7 @@ describe("ViewForm page", () => {
         submittedAt: "2024-03-02T10:00:00Z",
         fieldId: "f1",
         answerValue: "Yes",
-      }
+      },
     ]);
 
     // Mock successful bulk user fetch
@@ -399,7 +407,7 @@ describe("ViewForm page", () => {
       if (url.includes("/api/users/by-ids?ids=101")) {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve([{ id: 101, name: "John Doe" }])
+          json: () => Promise.resolve([{ id: 101, name: "John Doe" }]),
         });
       }
       return Promise.resolve({ ok: false });
@@ -431,7 +439,7 @@ describe("ViewForm page", () => {
         submittedAt: "2024-03-02T10:00:00Z",
         fieldId: "f1",
         answerValue: "Yes",
-      }
+      },
     ]);
 
     // Mock failed bulk endpoints but successful individual endpoint
@@ -444,7 +452,8 @@ describe("ViewForm page", () => {
       if (url.includes("/api/users/102")) {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ id: 102, username: "jane_smith" })
+          json: () =>
+            Promise.resolve({ id: 102, username: "jane_smith" }),
         });
       }
       return Promise.resolve({ ok: false });
@@ -481,12 +490,12 @@ describe("ViewForm page", () => {
               {
                 fieldId: "forms:complex/field:id:123abc",
                 label: "Complex Field",
-                type: "short"
-              }
-            ]
-          }
-        ]
-      }
+                type: "short",
+              },
+            ],
+          },
+        ],
+      },
     };
 
     FormService.get.mockResolvedValueOnce(formWithComplexIds);
@@ -496,8 +505,8 @@ describe("ViewForm page", () => {
         userId: 101,
         submittedAt: "2024-03-02T10:00:00Z",
         fieldId: "forms:complex/field:id:123abc",
-        answerValue: "Complex answer"
-      }
+        answerValue: "Complex answer",
+      },
     ]);
 
     render(
@@ -510,9 +519,11 @@ describe("ViewForm page", () => {
 
     // Switch to responses
     fireEvent.click(screen.getByRole("tab", { name: /responses/i }));
-    
+
     // Switch to individual responses
-    fireEvent.click(screen.getByRole("button", { name: /individual response/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /individual response/i })
+    );
 
     await waitFor(() => {
       expect(screen.getByText("Complex Field")).toBeInTheDocument();
@@ -531,13 +542,13 @@ describe("ViewForm page", () => {
             fields: [
               {
                 fieldId: "unlabeled_field",
-                type: "short"
+                type: "short",
                 // No label provided
-              }
-            ]
-          }
-        ]
-      }
+              },
+            ],
+          },
+        ],
+      },
     };
 
     FormService.get.mockResolvedValueOnce(formWithMissingLabels);
@@ -547,8 +558,8 @@ describe("ViewForm page", () => {
         userId: 101,
         submittedAt: "2024-03-02T10:00:00Z",
         fieldId: "unlabeled_field",
-        answerValue: "Answer to unlabeled question"
-      }
+        answerValue: "Answer to unlabeled question",
+      },
     ]);
 
     render(
@@ -561,20 +572,24 @@ describe("ViewForm page", () => {
 
     // Switch to layout tab to verify field rendering
     fireEvent.click(screen.getByRole("tab", { name: /form layout/i }));
-    
+
     await waitFor(() => {
-      // Should show "Untitled" for the unlabeled field
+      // Should show fieldId text in layout row (since label missing)
       expect(screen.getByText(/unlabeled_field/i)).toBeInTheDocument();
     });
 
     // Switch to responses
     fireEvent.click(screen.getByRole("tab", { name: /responses/i }));
-    
+
     // Switch to individual responses
-    fireEvent.click(screen.getByRole("button", { name: /individual response/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /individual response/i })
+    );
 
     await waitFor(() => {
-      expect(screen.getByText("Answer to unlabeled question")).toBeInTheDocument();
+      expect(
+        screen.getByText("Answer to unlabeled question")
+      ).toBeInTheDocument();
     });
   });
 
@@ -599,7 +614,9 @@ describe("ViewForm page", () => {
     });
 
     // Switch to individual responses
-    fireEvent.click(screen.getByRole("button", { name: /individual response/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /individual response/i })
+    );
 
     await waitFor(() => {
       expect(screen.getByText("No responses")).toBeInTheDocument();
@@ -623,14 +640,14 @@ describe("ViewForm page", () => {
         submittedAt: "2024-03-03T11:00:00Z",
         fieldId: "f1",
         answerValue: "No",
-      }
+      },
     ]);
 
     // Mock successful bulk user fetch with different formats
     // The component might handle this differently than expected in the test
     global.fetch.mockImplementation(() => {
       return Promise.resolve({
-        ok: false // Force fallback to default user names
+        ok: false, // Force fallback to default user names
       });
     });
 
@@ -656,69 +673,71 @@ describe("ViewForm page", () => {
   // Test JWT token extraction for file downloads
   it("renders file download buttons for file answers", async () => {
     FormService.get.mockResolvedValueOnce(mockForm);
-    
+
     ResponsesApi.list.mockResolvedValue([
       {
         responseId: 1,
         userId: 101,
         submittedAt: "2024-03-01T10:00:00Z",
         fieldId: "f1",
-        answerValue: "file:123"
-      }
+        answerValue: "file:123",
+      },
     ]);
-    
+
     // Mock fetch for file download
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       blob: () => Promise.resolve(new Blob(["test content"])),
       headers: new Headers({
-        'Content-Disposition': 'attachment; filename="test.txt"'
-      })
+        "Content-Disposition": 'attachment; filename="test.txt"',
+      }),
     });
-    
+
     // Mock document methods for file download
     const originalCreateElement = document.createElement;
     const mockLink = {
       href: "",
       download: "",
       click: vi.fn(),
-      remove: vi.fn()
+      remove: vi.fn(),
     };
-    
+
     document.createElement = vi.fn((tag) => {
       if (tag === "a") return mockLink;
       return originalCreateElement.call(document, tag);
     });
-    
+
     // Mock URL methods
     const originalCreateObjectURL = URL.createObjectURL;
     URL.createObjectURL = vi.fn(() => "blob:test");
-    
+
     render(
       <MemoryRouter>
         <ViewForm />
       </MemoryRouter>
     );
-    
+
     await screen.findByText("Form Details");
-    
+
     // Switch to responses tab
     fireEvent.click(screen.getByRole("tab", { name: /responses/i }));
-    
+
     // Switch to individual responses
-    fireEvent.click(screen.getByRole("button", { name: /individual response/i }));
-    
+    fireEvent.click(
+      screen.getByRole("button", { name: /individual response/i })
+    );
+
     // Wait for download button to appear
     await waitFor(() => {
       expect(screen.getByText(/download file/i)).toBeInTheDocument();
     });
-    
+
     // Click download button
     fireEvent.click(screen.getByText(/download file/i));
-    
+
     // Verify fetch was called
     expect(global.fetch).toHaveBeenCalled();
-    
+
     // Restore mocks
     document.createElement = originalCreateElement;
     URL.createObjectURL = originalCreateObjectURL;
@@ -738,21 +757,21 @@ describe("ViewForm page", () => {
               {
                 fieldId: "forms:complex/field:id:123abc",
                 label: "Complex Field",
-                type: "short"
+                type: "short",
               },
               {
                 fieldId: "simple-id",
                 label: "Simple Field",
-                type: "short"
-              }
-            ]
-          }
-        ]
-      }
+                type: "short",
+              },
+            ],
+          },
+        ],
+      },
     };
-    
+
     FormService.get.mockResolvedValueOnce(complexForm);
-    
+
     // Create responses with various field ID formats
     const responses = [
       {
@@ -760,42 +779,44 @@ describe("ViewForm page", () => {
         userId: 101,
         submittedAt: "2024-03-02T10:00:00Z",
         fieldId: "forms:complex/field:id:123abc",
-        answerValue: "Complex answer"
+        answerValue: "Complex answer",
       },
       {
         responseId: 1,
         userId: 101,
         submittedAt: "2024-03-02T10:00:00Z",
         fieldId: "simple-id",
-        answerValue: "Simple answer"
-      }
+        answerValue: "Simple answer",
+      },
     ];
-    
+
     ResponsesApi.list.mockResolvedValue(responses);
-    
+
     render(
       <MemoryRouter>
         <ViewForm />
       </MemoryRouter>
     );
-    
+
     await screen.findByText("Form Details");
-    
+
     // Switch to layout tab to verify field rendering
     fireEvent.click(screen.getByRole("tab", { name: /form layout/i }));
-    
+
     // Check that complex field is rendered correctly
     await waitFor(() => {
       expect(screen.getByText("Complex Field")).toBeInTheDocument();
       expect(screen.getByText("Simple Field")).toBeInTheDocument();
     });
-    
+
     // Switch to responses tab
     fireEvent.click(screen.getByRole("tab", { name: /responses/i }));
-    
+
     // Switch to individual responses
-    fireEvent.click(screen.getByRole("button", { name: /individual response/i }));
-    
+    fireEvent.click(
+      screen.getByRole("button", { name: /individual response/i })
+    );
+
     // Check that field labels are correctly resolved
     await waitFor(() => {
       expect(screen.getByText("Complex Field")).toBeInTheDocument();
@@ -806,36 +827,38 @@ describe("ViewForm page", () => {
   // Test URL query parameter handling
   it("syncs tab state with URL query parameters", async () => {
     FormService.get.mockResolvedValueOnce(mockForm);
-    
+
     // Mock navigate function to check URL updates
     const navigateMock = vi.fn();
     const useNavigateMock = vi.fn(() => navigateMock);
-    
+
     // Override the mock from the top of the file
     vi.mocked(useParams).mockReturnValue({ formKey: "123" });
-    
+
     // Mock useNavigate
     const reactRouterDom = await import("react-router-dom");
     const originalUseNavigate = reactRouterDom.useNavigate;
     reactRouterDom.useNavigate = useNavigateMock;
-    
+
     render(
       <MemoryRouter>
         <ViewForm />
       </MemoryRouter>
     );
-    
+
     await screen.findByText("Form Details");
-    
+
     // Switch to layout tab
     fireEvent.click(screen.getByRole("tab", { name: /form layout/i }));
-    
+
     // Check that the layout tab is active
-    expect(screen.getByRole("tab", { name: /form layout/i })).toHaveAttribute("aria-selected", "true");
-    
+    expect(
+      screen.getByRole("tab", { name: /form layout/i })
+    ).toHaveAttribute("aria-selected", "true");
+
     // Verify navigate was called to update URL
     expect(navigateMock).toHaveBeenCalled();
-    
+
     // Restore original
     reactRouterDom.useNavigate = originalUseNavigate;
   });
@@ -843,39 +866,39 @@ describe("ViewForm page", () => {
   // Test pagination in responses
   it("handles pagination in responses view", async () => {
     FormService.get.mockResolvedValueOnce(mockForm);
-    
+
     // Create 15 mock responses to test pagination
     const mockResponses = Array.from({ length: 15 }, (_, i) => ({
       responseId: i + 1,
       userId: 100 + i,
       submittedAt: `2024-03-${(i % 28) + 1}T10:00:00Z`,
       fieldId: "f1",
-      answerValue: `Answer ${i + 1}`
+      answerValue: `Answer ${i + 1}`,
     }));
-    
+
     ResponsesApi.list.mockResolvedValue(mockResponses);
-    
+
     render(
       <MemoryRouter>
         <ViewForm />
       </MemoryRouter>
     );
-    
+
     await screen.findByText("Form Details");
-    
+
     // Switch to responses tab
     fireEvent.click(screen.getByRole("tab", { name: /responses/i }));
-    
+
     // Check that pagination controls exist
     await waitFor(() => {
       expect(screen.getByText(/items per page/i)).toBeInTheDocument();
       expect(screen.getByText(/1 of 2/i)).toBeInTheDocument();
     });
-    
+
     // Change items per page
     const pageSizeSelect = screen.getByRole("combobox");
     fireEvent.change(pageSizeSelect, { target: { value: "25" } });
-    
+
     // Check that pagination updated
     await waitFor(() => {
       expect(screen.getByText(/1 of 1/i)).toBeInTheDocument();
@@ -885,39 +908,41 @@ describe("ViewForm page", () => {
   // Test search functionality in responses
   it("filters responses based on search input", async () => {
     FormService.get.mockResolvedValueOnce(mockForm);
-    
+
     ResponsesApi.list.mockResolvedValue([
       {
         responseId: 1,
         userId: 101,
         submittedAt: "2024-03-02T10:00:00Z",
         fieldId: "f1",
-        answerValue: "Unique answer text"
+        answerValue: "Unique answer text",
       },
       {
         responseId: 2,
         userId: 102,
         submittedAt: "2024-03-03T11:00:00Z",
         fieldId: "f1",
-        answerValue: "Different response"
-      }
+        answerValue: "Different response",
+      },
     ]);
-    
+
     render(
       <MemoryRouter>
         <ViewForm />
       </MemoryRouter>
     );
-    
+
     await screen.findByText("Form Details");
-    
+
     // Switch to responses tab
     fireEvent.click(screen.getByRole("tab", { name: /responses/i }));
-    
+
     // Enter search text
-    const searchInput = screen.getByPlaceholderText(/search by name\/user id/i);
+    const searchInput = screen.getByPlaceholderText(
+      /search by name\/user id/i
+    );
     fireEvent.change(searchInput, { target: { value: "101" } });
-    
+
     // Check that search works
     await waitFor(() => {
       expect(screen.getByText("101")).toBeInTheDocument();
@@ -928,18 +953,18 @@ describe("ViewForm page", () => {
   // Test field type icons in layout view
   it("displays field type icons in layout view", async () => {
     FormService.get.mockResolvedValueOnce(mockForm);
-    
+
     render(
       <MemoryRouter>
         <ViewForm />
       </MemoryRouter>
     );
-    
+
     await screen.findByText("Form Details");
-    
+
     // Switch to layout tab
     fireEvent.click(screen.getByRole("tab", { name: /form layout/i }));
-    
+
     // Check that field types are displayed
     await waitFor(() => {
       expect(screen.getByText("short")).toBeInTheDocument();
@@ -951,41 +976,43 @@ describe("ViewForm page", () => {
   it("displays form status correctly", async () => {
     FormService.get.mockResolvedValueOnce({
       ...mockForm,
-      status: "Published"
+      status: "Published",
     });
-    
+
     render(
       <MemoryRouter>
         <ViewForm />
       </MemoryRouter>
     );
-    
+
     await screen.findByText("Form Details");
-    
+
     // Check that the form visibility section exists
     const formVisibilityText = screen.getByText(/form visibility/i);
     expect(formVisibilityText).toBeInTheDocument();
-    
+
     // Check that the hint text is displayed
-    const hintText = screen.getByText(/turn on to allow new workflows/i);
+    const hintText = screen.getByText(
+      /turn on to allow new workflows/i
+    );
     expect(hintText).toBeInTheDocument();
   });
 
   // Test required field indicator
   it("displays required field indicator", async () => {
     FormService.get.mockResolvedValueOnce(mockForm);
-    
+
     render(
       <MemoryRouter>
         <ViewForm />
       </MemoryRouter>
     );
-    
+
     await screen.findByText("Form Details");
-    
+
     // Switch to layout tab
     fireEvent.click(screen.getByRole("tab", { name: /form layout/i }));
-    
+
     // Check that required field indicator is displayed
     await waitFor(() => {
       // First field is required
@@ -998,35 +1025,35 @@ describe("ViewForm page", () => {
   // Test response date formatting
   it("formats response dates correctly", async () => {
     FormService.get.mockResolvedValueOnce(mockForm);
-    
+
     const submittedDate = new Date("2024-03-01T10:00:00Z").toISOString();
-    
+
     ResponsesApi.list.mockResolvedValue([
       {
         responseId: 1,
         userId: 101,
         submittedAt: submittedDate,
         fieldId: "f1",
-        answerValue: "Test answer"
-      }
+        answerValue: "Test answer",
+      },
     ]);
-    
+
     render(
       <MemoryRouter>
         <ViewForm />
       </MemoryRouter>
     );
-    
+
     await screen.findByText("Form Details");
-    
+
     // Switch to responses tab
     fireEvent.click(screen.getByRole("tab", { name: /responses/i }));
-    
+
     // Check that date is displayed in some format (not raw ISO)
     await waitFor(() => {
       // The exact format will depend on locale, so we just check it's not the raw ISO string
       expect(screen.queryByText(submittedDate)).not.toBeInTheDocument();
-      
+
       // And that there is some date text in the table
       const cells = screen.getAllByRole("cell");
       const dateCell = cells[3]; // 4th cell should be date
@@ -1038,39 +1065,211 @@ describe("ViewForm page", () => {
   // Test response view button functionality
   it("switches to individual response view when clicking View button", async () => {
     FormService.get.mockResolvedValueOnce(mockForm);
-    
+
     ResponsesApi.list.mockResolvedValue([
       {
         responseId: 1,
         userId: 101,
         submittedAt: "2024-03-01T10:00:00Z",
         fieldId: "f1",
-        answerValue: "Test answer"
-      }
+        answerValue: "Test answer",
+      },
     ]);
-    
+
     render(
       <MemoryRouter>
         <ViewForm />
       </MemoryRouter>
     );
-    
+
     await screen.findByText("Form Details");
-    
+
     // Switch to responses tab
     fireEvent.click(screen.getByRole("tab", { name: /responses/i }));
-    
+
     // Wait for the View button to appear
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "View" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "View" })
+      ).toBeInTheDocument();
     });
-    
+
     // Click the View button
     fireEvent.click(screen.getByRole("button", { name: "View" }));
-    
+
     // Check that we switched to individual response view
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /individual response/i })).toHaveClass("active");
+      expect(
+        screen.getByRole("button", { name: /individual response/i })
+      ).toHaveClass("active");
+    });
+  });
+
+  // EXTRA: maps choice option IDs from comma-separated answerValue to labels
+  it("maps choice option IDs from comma-separated answerValue to labels", async () => {
+    const formWithChoice = {
+      title: "Choice Form",
+      description: "",
+      status: "Published",
+      layout: {
+        sections: [
+          {
+            fields: [
+              {
+                fieldId: "role",
+                label: "Role",
+                type: "dropdown",
+                options: [
+                  { id: 1, text: "Admin" },
+                  { id: 2, text: "Manager" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    FormService.get.mockResolvedValueOnce(formWithChoice);
+    ResponsesApi.list.mockResolvedValue([
+      {
+        responseId: 1,
+        userId: 77,
+        submittedAt: "2024-03-02T10:00:00Z",
+        fieldId: "role",
+        // hits branch where trimmed includes(",")
+        answerValue: "1,2",
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <ViewForm />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Form Details");
+    fireEvent.click(screen.getByRole("tab", { name: /responses/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /individual response/i })
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Admin, Manager")
+      ).toBeInTheDocument();
+    });
+  });
+
+  // EXTRA: file download failure path & no JWT
+  it("shows alert when file download fails and no JWT is found", async () => {
+    // ensure no JWT anywhere so findJwtToken() returns null
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+
+    const formWithFile = {
+      title: "File Error Form",
+      description: "",
+      status: "Published",
+      layout: {
+        sections: [
+          {
+            fields: [
+              {
+                fieldId: "fileField",
+                label: "Attachment",
+                type: "file",
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    FormService.get.mockResolvedValueOnce(formWithFile);
+    ResponsesApi.list.mockResolvedValue([
+      {
+        responseId: 10,
+        userId: 1,
+        submittedAt: "2024-03-02T10:00:00Z",
+        fieldId: "fileField",
+        answerValue: "file:999",
+      },
+    ]);
+
+    const alertSpy = vi
+      .spyOn(window, "alert")
+      .mockImplementation(() => {});
+
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      headers: { get: () => null },
+      blob: () => Promise.resolve(new Blob()),
+    });
+
+    render(
+      <MemoryRouter>
+        <ViewForm />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Form Details");
+    fireEvent.click(screen.getByRole("tab", { name: /responses/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /individual response/i })
+    );
+
+    const dlBtn = await screen.findByText(/download file/i);
+    fireEvent.click(dlBtn);
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith("Download failed (401)");
+    });
+
+    alertSpy.mockRestore();
+    global.fetch = originalFetch;
+  });
+
+  // EXTRA: bulk user map object branch
+  it("normalizes usernames when bulk API returns object map", async () => {
+    FormService.get.mockResolvedValueOnce(mockForm);
+    ResponsesApi.list.mockResolvedValue([
+      {
+        responseId: 1,
+        userId: 200,
+        submittedAt: "2024-03-02T10:00:00Z",
+        fieldId: "f1",
+        answerValue: "Yes",
+      },
+    ]);
+
+    global.fetch.mockImplementation((url) => {
+      if (String(url).includes("/api/users/by-ids?ids=200")) {
+        // object map → normalizeBulkUsers(object) path
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              200: { name: "Bulk Map User" },
+            }),
+        });
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+    });
+
+    render(
+      <MemoryRouter>
+        <ViewForm />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Form Details");
+    fireEvent.click(screen.getByRole("tab", { name: /responses/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Bulk Map User")).toBeInTheDocument();
     });
   });
 });

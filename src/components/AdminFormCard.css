@@ -130,7 +130,8 @@
   font-weight: 600;
    background: #80D8BC40;
   color: #2e7d32;
-  border : solid 1px 
+  border : solid 1px #80D8BC;
+  border-radius: 6px;
 }
 .pill-green {
   background: #80D8BC40;

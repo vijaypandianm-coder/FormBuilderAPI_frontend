@@ -25,29 +25,30 @@ describe("<AdminFormCard />", () => {
     expect(screen.getByText(/Draft/i)).toBeInTheDocument();
   });
 
-  it("kebab opens/closes and routes clicks correctly: published → View Form (Config)", () => {
-    const onConfig = vi.fn();
-    const onClone = vi.fn();
-    const onDelete = vi.fn();
+it("kebab opens/closes and routes clicks correctly: published → View Form (Config)", () => {
+  const onConfig = vi.fn();
+  const onDelete = vi.fn();
 
-    render(<AdminFormCard form={makeForm({ status: "Published" })} onConfig={onConfig} onClone={onClone} onDelete={onDelete} />);
+  render(
+    <AdminFormCard
+      form={makeForm({ status: "Published" })}
+      onConfig={onConfig}
+      onDelete={onDelete}
+    />
+  );
 
-    const kebabBtn = screen.getByRole("button", { name: /more options/i });
-    fireEvent.click(kebabBtn);
-    // Primary label for published is "View Form"
-    fireEvent.click(screen.getByRole("menuitem", { name: "View Form" }));
-    expect(onConfig).toHaveBeenCalledTimes(1);
+  const kebabBtn = screen.getByRole("button", { name: /more options/i });
+  fireEvent.click(kebabBtn);
 
-    // Re-open and click Clone
-    fireEvent.click(kebabBtn);
-    fireEvent.click(screen.getByRole("menuitem", { name: "Clone" }));
-    expect(onClone).toHaveBeenCalledTimes(1);
+  // Primary label for published is "View Form"
+  fireEvent.click(screen.getByRole("menuitem", { name: "View Form" }));
+  expect(onConfig).toHaveBeenCalledTimes(1);
 
-    // Re-open and click Delete
-    fireEvent.click(kebabBtn);
-    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
-    expect(onDelete).toHaveBeenCalledTimes(1);
-  });
+  // Re-open and click Delete
+  fireEvent.click(kebabBtn);
+  fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+  expect(onDelete).toHaveBeenCalledTimes(1);
+});
 
   it("published/draft primary action: draft → Edit Form (builder)", () => {
     const onEdit = vi.fn();

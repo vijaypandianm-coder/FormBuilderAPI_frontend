@@ -201,83 +201,83 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// src/App.jsx
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import React from "react";
-import AdminDashboard from "./pages/AdminDashboard";
-import CreateForm from "./pages/CreateForm";
-import PreviewForm from "./pages/PreviewForm";
-import ViewForm from "./pages/ViewForm";                 // admin responses page
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import LearnerForms from "./pages/LearnerForms";
-import MySubmissions from "./pages/MySubmissions";
-import MySubmissionDetail from "./pages/MySubmissionDetail";
-import FormSubmissionPage from "./pages/FormSubmissionPage"; // learner submit page
-import { AuthService } from "./api/auth";
-import Layout from "./components/Layout";                   // global header + outlet
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">  // src/App.jsx
+  import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+  import React from "react";
+  import AdminDashboard from "./pages/AdminDashboard";
+  import CreateForm from "./pages/CreateForm";
+  import PreviewForm from "./pages/PreviewForm";
+  import ViewForm from "./pages/ViewForm";                 // admin responses page
+  import Login from "./pages/Login";
+  import Register from "./pages/Register";
+  import LearnerForms from "./pages/LearnerForms";
+  import MySubmissions from "./pages/MySubmissions";
+  import MySubmissionDetail from "./pages/MySubmissionDetail";
+  import FormSubmissionPage from "./pages/FormSubmissionPage"; // learner submit page
+  import { AuthService } from "./api/auth";
+  import Layout from "./components/Layout";                   // global header + outlet
 &nbsp;
-function b64urlToStr(b64url) {
-  try {
-    return atob((b64url || <span class="branch-1 cbranch-no" title="branch not covered" >"").r</span>eplace(/-/g, "+").replace(/_/g, "/"));
-  } catch { <span class="cstat-no" title="statement not covered" >return ""; }</span>
-}
-&nbsp;
-function getRole() {
-  try {
-    const token = AuthService.getToken?.();
-    if (!token) return null;
-    const payload = JSON.parse(b64urlToStr(token.split(".")[1]) || <span class="branch-1 cbranch-no" title="branch not covered" >"{}")</span>;
-    return (
-      payload?.role ||
-      (Array.isArray(payload?.roles) ? payload.roles[0] : <span class="branch-1 cbranch-no" title="branch not covered" >payload?.roles) ||</span>
-<span class="branch-2 cbranch-no" title="branch not covered" >      payload?.["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||</span>
-<span class="branch-3 cbranch-no" title="branch not covered" >      null</span>
-    );
-  } catch {
-<span class="cstat-no" title="statement not covered" >    return null;</span>
+  function b64urlToStr(b64url) {
+    try {
+      return atob((b64url || <span class="branch-1 cbranch-no" title="branch not covered" >"").r</span>eplace(/-/g, "+").replace(/_/g, "/"));
+    } catch { <span class="cstat-no" title="statement not covered" >return ""; }</span>
   }
-}
 &nbsp;
-function RoleHome() {
-  const role = (getRole() || "").toString();
-  if (role.toLowerCase() === "admin") return &lt;AdminDashboard /&gt;;
-  return &lt;Navigate to="/learn" replace /&gt;;
-}
+  function getRole() {
+    try {
+      const token = AuthService.getToken?.();
+      if (!token) return null;
+      const payload = JSON.parse(b64urlToStr(token.split(".")[1]) || <span class="branch-1 cbranch-no" title="branch not covered" >"{}")</span>;
+      return (
+        payload?.role ||
+        (Array.isArray(payload?.roles) ? payload.roles[0] : <span class="branch-1 cbranch-no" title="branch not covered" >payload?.roles) ||</span>
+<span class="branch-2 cbranch-no" title="branch not covered" >        payload?.["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||</span>
+<span class="branch-3 cbranch-no" title="branch not covered" >        null</span>
+      );
+    } catch {
+<span class="cstat-no" title="statement not covered" >      return null;</span>
+    }
+  }
 &nbsp;
-export default function App() {
-  return (
-    &lt;BrowserRouter&gt;
-      &lt;Routes&gt;
-        &lt;Route element={&lt;Layout /&gt;}&gt;
-          &lt;Route path="/" element={&lt;RoleHome /&gt;} /&gt;
-          &lt;Route path="login" element={&lt;Login /&gt;} /&gt;
-          &lt;Route path="register" element={&lt;Register /&gt;} /&gt;
+  function RoleHome() {
+    const role = (getRole() || "").toString();
+    if (role.toLowerCase() === "admin") return &lt;AdminDashboard /&gt;;
+    return &lt;Navigate to="/learn" replace /&gt;;
+  }
 &nbsp;
-          {/* Admin */}
-          &lt;Route path="/create-form" element={&lt;CreateForm /&gt;} /&gt;
-          &lt;Route path="/preview" element={&lt;PreviewForm /&gt;} /&gt;
-          &lt;Route path="/admin/forms/:formKey" element={&lt;ViewForm /&gt;} /&gt;
+  export default function App() {
+    return (
+      &lt;BrowserRouter&gt;
+        &lt;Routes&gt;
+          &lt;Route element={&lt;Layout /&gt;}&gt;
+            &lt;Route path="/" element={&lt;RoleHome /&gt;} /&gt;
+            &lt;Route path="login" element={&lt;Login /&gt;} /&gt;
+            &lt;Route path="register" element={&lt;Register /&gt;} /&gt;
 &nbsp;
-          {/* Learner */}
-          &lt;Route path="/forms/:formKey" element={&lt;FormSubmissionPage /&gt;} /&gt;
-          &lt;Route path="/learn" element={&lt;LearnerForms /&gt;} /&gt;
-          &lt;Route path="/learn/my-submissions" element={&lt;MySubmissions /&gt;} /&gt;
-          &lt;Route path="/learn/submissions/:responseId" element={&lt;MySubmissionDetail /&gt;} /&gt;
+            {/* Admin */}
+            &lt;Route path="/create-form" element={&lt;CreateForm /&gt;} /&gt;
+            &lt;Route path="/preview" element={&lt;PreviewForm /&gt;} /&gt;
+            &lt;Route path="/admin/forms/:formKey" element={&lt;ViewForm /&gt;} /&gt;
 &nbsp;
-          &lt;Route path="*" element={&lt;Navigate to="/" replace /&gt;} /&gt;
-        &lt;/Route&gt;
-      &lt;/Routes&gt;
-    &lt;/BrowserRouter&gt;
-  );
-}</pre></td></tr></table></pre>
+            {/* Learner */}
+            &lt;Route path="/forms/:formKey" element={&lt;FormSubmissionPage /&gt;} /&gt;
+            &lt;Route path="/learn" element={&lt;LearnerForms /&gt;} /&gt;
+            &lt;Route path="/learn/my-submissions" element={&lt;MySubmissions /&gt;} /&gt;
+            &lt;Route path="/learn/submissions/:responseId" element={&lt;MySubmissionDetail /&gt;} /&gt;
+&nbsp;
+            &lt;Route path="*" element={&lt;Navigate to="/" replace /&gt;} /&gt;
+          &lt;/Route&gt;
+        &lt;/Routes&gt;
+      &lt;/BrowserRouter&gt;
+    );
+  }</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-05T04:04:09.891Z
+                at 2025-11-06T01:26:57.309Z
             </div>
         <script src="../prettify.js"></script>
         <script>

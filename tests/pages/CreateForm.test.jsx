@@ -1,41 +1,62 @@
 // tests/pages/CreateForm.test.jsx
 import React from "react";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { act } from "react-dom/test-utils";
+import CreateForm from "../../src/pages/CreateForm.jsx";
 
-//
-// Shared mocks
-//
+// ------- Mocks -------
 
-let lastOnDragEnd = null;
-let mockLocation = { state: undefined };
+// Keep track of navigation + location state
 const mockNavigate = vi.fn();
+let mockLocationState = {};
 
-// mock react-router hooks
-vi.mock("react-router-dom", async (orig) => {
-  const actual = await orig();
+// Mock react-router-dom hooks
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
   return {
     ...actual,
     useNavigate: () => mockNavigate,
-    useLocation: () => mockLocation,
+    useLocation: () => ({
+      pathname: "/create-form",
+      state: mockLocationState,
+    }),
   };
 });
 
-// mock DnD so we can capture onDragEnd but still render JSX
+// Mock AuthService
+import { AuthService } from "../../src/api/auth";
+vi.mock("../../src/api/auth", () => ({
+  AuthService: {
+    isAuthenticated: vi.fn(),
+  },
+}));
+
+// Mock FormService
+import { FormService } from "../../src/api/forms";
+vi.mock("../../src/api/forms", () => ({
+  FormService: {
+    get: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+}));
+
+// Mock @hello-pangea/dnd in a safe, test-friendly way
+let latestOnDragEnd = null;
+
 vi.mock("@hello-pangea/dnd", () => {
+  const React = require("react");
   return {
     DragDropContext: ({ children, onDragEnd }) => {
-      lastOnDragEnd = onDragEnd;
-      return (
-        <div data-testid="dnd-root">
-          {children}
-        </div>
-      );
+      latestOnDragEnd = onDragEnd;
+      return <div data-testid="dd-context">{children}</div>;
     },
-    Droppable: ({ droppableId, children }) => {
+    Droppable: ({ children, droppableId }) => {
       const provided = {
         innerRef: () => {},
-        droppableProps: { "data-droppable-id": droppableId },
+        droppableProps: {},
+        placeholder: null,
       };
       const snapshot = { isDraggingOver: false };
       return (
@@ -44,12 +65,12 @@ vi.mock("@hello-pangea/dnd", () => {
         </div>
       );
     },
-    Draggable: ({ draggableId, index, children }) => {
+    Draggable: ({ children, draggableId, index }) => {
       const provided = {
         innerRef: () => {},
         draggableProps: {
           "data-draggable-id": draggableId,
-          "data-index": index,
+          "data-draggable-index": index,
         },
         dragHandleProps: {},
       };
@@ -63,515 +84,491 @@ vi.mock("@hello-pangea/dnd", () => {
   };
 });
 
-// mock services
-vi.mock("@src/api/auth", () => ({
-  AuthService: { isAuthenticated: vi.fn() },
-}));
+// Small helper to flush microtasks if needed
+const flushPromises = () => new Promise((res) => setTimeout(res, 0));
 
-vi.mock("@src/api/forms", () => ({
-  FormService: {
-    create: vi.fn(),
-    update: vi.fn(),
-  },
-}));
+// ------- Shared setup / teardown -------
 
-const { AuthService } = await import("@src/api/auth");
-const { FormService } = await import("@src/api/forms");
+let warnSpy;
 
-// Mock console.warn to test error handling paths
-const originalConsoleWarn = console.warn;
-const mockConsoleWarn = vi.fn();
+beforeEach(() => {
+  localStorage.clear();
+  mockLocationState = {};
+  mockNavigate.mockReset();
 
-describe("CreateForm", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockNavigate.mockReset();
-    mockLocation = { state: undefined };
-    lastOnDragEnd = null;
-    window.localStorage.clear();
-    console.warn = mockConsoleWarn;
+  AuthService.isAuthenticated.mockReset();
+  FormService.get.mockReset();
+  FormService.create.mockReset();
+  FormService.update.mockReset();
+
+  warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+});
+
+afterEach(() => {
+  warnSpy.mockRestore();
+});
+
+// ------- Tests -------
+
+describe("<CreateForm />", () => {
+  it("starts with a fresh form for new create and clears any old fb_create", async () => {
+  // Seed an old draft
+  localStorage.setItem(
+    "fb_create",
+    JSON.stringify({
+      name: "Old Name",
+      desc: "Old desc",
+      visible: false,
+      questions: [{ id: "q1" }],
+    })
+  );
+
+  AuthService.isAuthenticated.mockReturnValue(true);
+
+  render(<CreateForm />);
+
+  // fb_create should be reset to a fresh blank draft on mount
+  const draft = JSON.parse(localStorage.getItem("fb_create"));
+  expect(draft).toEqual({
+    name: "",
+    desc: "",
+    visible: true,
+    questions: [],
   });
 
-  afterEach(() => {
-    console.warn = originalConsoleWarn;
-  });
+  // On config tab by default
+  expect(screen.getByText("Form Details")).toBeInTheDocument();
 
-  async function renderCreateForm() {
-    const { default: CreateForm } = await import("@src/pages/CreateForm.jsx");
-    return render(<CreateForm />);
-  }
+  const nameInput = screen.getByPlaceholderText("Enter the form name");
+  const descInput = screen.getByPlaceholderText(
+    "Enter the form description (optional)"
+  );
 
-  it("shows config tab by default and disables Next when name is empty", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
+  expect(nameInput).toHaveValue("");
+  expect(descInput).toHaveValue("");
 
-    await renderCreateForm();
+  // Visibility defaults to true; checkbox is visually hidden so include hidden elements
+  const visibilityCheckbox = screen.getByRole("checkbox", { hidden: true });
+  expect(visibilityCheckbox).toBeChecked();
+});
 
+  it("loads existing form for editing from API and maps fields correctly", async () => {
+    mockLocationState = { formKey: "edit-key", tab: "layout" };
+    AuthService.isAuthenticated.mockReturnValue(true);
+
+    FormService.get.mockResolvedValue({
+      title: "Edit Form",
+      description: "Edit Description",
+      visible: false,
+      layout: [
+        {
+          title: "Section 1",
+          fields: [
+            { fieldId: "f1", type: "text", label: "Short Q", isRequired: true },
+            {
+              fieldId: "f2",
+              type: "textarea",
+              label: "Long Q",
+              isRequired: false,
+            },
+            {
+              fieldId: "f3",
+              type: "date",
+              label: "Date Q",
+              isRequired: false,
+              dateFormat: "MM-DD-YYYY",
+            },
+            {
+              fieldId: "f4",
+              type: "select",
+              label: "Dropdown Q",
+              isRequired: true,
+              options: ["A", "B"],
+              multi: true,
+            },
+            {
+              fieldId: "f5",
+              type: "file",
+              label: "File Q",
+              isRequired: false,
+            },
+            {
+              fieldId: "f6",
+              type: "number",
+              label: "Number Q",
+              isRequired: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    const { container } = render(<CreateForm />);
+
+    await waitFor(() =>
+      expect(FormService.get).toHaveBeenCalledWith("edit-key")
+    );
+
+    // Layout tab header values
+    expect(screen.getByDisplayValue("Edit Form")).toBeInTheDocument();
     expect(
-      screen.getByRole("tab", { name: /Form Configuration/i })
-    ).toHaveAttribute("aria-selected", "true");
-    expect(
-      screen.getByRole("tab", { name: /Form Layout/i })
-    ).toHaveAttribute("aria-selected", "false");
+      screen.getByDisplayValue("Edit Description")
+    ).toBeInTheDocument();
 
-    const nextBtn = screen.getByRole("button", { name: /Next/i });
-    expect(nextBtn).toBeDisabled();
-    expect(nextBtn).toHaveAttribute("aria-disabled", "true");
+    // We should have 6 question cards
+    const qCards = container.querySelectorAll(".q-card");
+    expect(qCards.length).toBe(6);
+
+    // Date format mapped
+    expect(screen.getByPlaceholderText("MM-DD-YYYY")).toBeInTheDocument();
+
+    // Dropdown options mapped
+    expect(screen.getByDisplayValue("A")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("B")).toBeInTheDocument();
   });
 
-  it("enables Next when form name entered and switches to layout tab", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
+  it("handles error when loading existing form for editing without crashing", async () => {
+    mockLocationState = { formKey: "bad-key" };
+    AuthService.isAuthenticated.mockReturnValue(true);
 
-    await renderCreateForm();
+    FormService.get.mockRejectedValue(new Error("Boom"));
+
+    render(<CreateForm />);
+
+    await flushPromises();
+
+    // Component still renders config view
+    expect(screen.getByText("Form Details")).toBeInTheDocument();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Failed to load form for editing:",
+      "Boom"
+    );
+  });
+
+  it("stores preview payload and navigates to /preview", async () => {
+    mockLocationState = { tab: "layout" };
+    AuthService.isAuthenticated.mockReturnValue(true);
+
+    render(<CreateForm />);
 
     const nameInput = screen.getByPlaceholderText("Enter the form name");
-    fireEvent.change(nameInput, { target: { value: "My Form" } });
-
-    const nextBtn = screen.getByRole("button", { name: /Next/i });
-    expect(nextBtn).not.toBeDisabled();
-
-    fireEvent.click(nextBtn);
-
-    expect(
-      screen.getByRole("tab", { name: /Form Layout/i })
-    ).toHaveAttribute("aria-selected", "true");
-  });
-
-  it("loads persisted draft from fb_create and respects location.state.tab", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
-
-    const draft = {
-      name: "Saved Form",
-      desc: "Saved description",
-      visible: false,
-      questions: [{ id: "q1", type: "short", label: "Saved Question" }],
-    };
-    window.localStorage.setItem("fb_create", JSON.stringify(draft));
-    mockLocation = { state: { tab: "layout" } };
-
-    await renderCreateForm();
-
-    const nameInputs = screen.getAllByPlaceholderText("Enter the form name");
-    expect(nameInputs[0]).toHaveValue("Saved Form");
-
-    expect(
-      screen.getByRole("tab", { name: /Form Layout/i })
-    ).toHaveAttribute("aria-selected", "true");
-
-    expect(
-      screen.getByDisplayValue("Saved Question")
-    ).toBeInTheDocument();
-  });
-
-  it("handles invalid JSON in localStorage", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
-    
-    // Set invalid JSON in localStorage
-    window.localStorage.setItem("fb_create", "{invalid-json");
-    
-    await renderCreateForm();
-    
-    // Should log warning about parse failure
-    expect(mockConsoleWarn).toHaveBeenCalledWith(
-      expect.stringContaining("Failed to parse fb_create:"),
-      expect.anything()
+    const descInput = screen.getByPlaceholderText(
+      "Enter the form description (optional)"
     );
-  });
 
-  it("handlePreview stores fb_preview and navigates to /preview", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
+    fireEvent.change(nameInput, { target: { value: "Preview Name" } });
+    fireEvent.change(descInput, { target: { value: "Preview Desc" } });
 
-    const draft = {
-      name: "Preview Form",
-      desc: "Preview desc",
-      visible: true,
-      questions: [{ id: "q1", type: "short", label: "Prev Q" }],
-    };
-    window.localStorage.setItem("fb_create", JSON.stringify(draft));
-    mockLocation = { state: { tab: "layout" } };
+    fireEvent.click(screen.getByText("Preview Form"));
 
-    await renderCreateForm();
+    const stored = JSON.parse(localStorage.getItem("fb_preview"));
+    expect(stored).toBeTruthy();
+    expect(stored.header.name).toBe("Preview Name");
+    expect(stored.header.desc).toBe("Preview Desc");
+    expect(stored.header.title).toBe("Employee Onboarding");
 
-    const previewBtn = screen.getByRole("button", { name: /Preview Form/i });
-    fireEvent.click(previewBtn);
-
-    const stored = JSON.parse(
-      window.localStorage.getItem("fb_preview") || "{}"
-    );
-    expect(stored.header?.name).toBe("Preview Form");
-    expect(stored.header?.desc).toBe("Preview desc");
-    expect(stored.questions).toHaveLength(1);
     expect(mockNavigate).toHaveBeenCalledWith("/preview");
   });
 
-  it("onDragEnd ignores events with no destination", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
-    mockLocation = { state: { tab: "layout" } };
-
-    await renderCreateForm();
-
-    expect(typeof lastOnDragEnd).toBe("function");
-    // just ensure it doesn't throw
-    lastOnDragEnd({
-      source: { droppableId: "FIELDS", index: 0 },
-      destination: null,
-    });
-  });
-
-  it("adds a new short-text question when dragging from palette to canvas", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
-    mockLocation = { state: { tab: "layout" } };
-
-    await renderCreateForm();
-
-    expect(typeof lastOnDragEnd).toBe("function");
-
-    // FIELDS index 0 is 'short'
-    lastOnDragEnd({
-      source: { droppableId: "FIELDS", index: 0 },
-      destination: { droppableId: "CANVAS", index: 0 },
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.getByPlaceholderText("Short Text (Up to 100 Characters)")
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("adds a new long-text question when dragging from palette to canvas", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
-    mockLocation = { state: { tab: "layout" } };
-
-    await renderCreateForm();
-
-    // FIELDS index 1 is 'long'
-    lastOnDragEnd({
-      source: { droppableId: "FIELDS", index: 1 },
-      destination: { droppableId: "CANVAS", index: 0 },
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.getByPlaceholderText("Long Text (Up to 500 Characters)")
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("adds a new date question when dragging from palette to canvas", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
-    mockLocation = { state: { tab: "layout" } };
-
-    await renderCreateForm();
-
-    // FIELDS index 2 is 'date'
-    lastOnDragEnd({
-      source: { droppableId: "FIELDS", index: 2 },
-      destination: { droppableId: "CANVAS", index: 0 },
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.getByPlaceholderText("DD/MM/YYYY")
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("adds a new dropdown question when dragging from palette to canvas", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
-    mockLocation = { state: { tab: "layout" } };
-
-    await renderCreateForm();
-
-    // FIELDS index 3 is 'dropdown'
-    lastOnDragEnd({
-      source: { droppableId: "FIELDS", index: 3 },
-      destination: { droppableId: "CANVAS", index: 0 },
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.getByText("+ Add Option")
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("adds a new file upload question when dragging from palette to canvas", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
-    mockLocation = { state: { tab: "layout" } };
-
-    await renderCreateForm();
-
-    // FIELDS index 4 is 'file'
-    lastOnDragEnd({
-      source: { droppableId: "FIELDS", index: 4 },
-      destination: { droppableId: "CANVAS", index: 0 },
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.getByText("File Upload (Only one file allowed)")
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("adds a new number question when dragging from palette to canvas", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
-    mockLocation = { state: { tab: "layout" } };
-
-    await renderCreateForm();
-
-    // FIELDS index 5 is 'number'
-    lastOnDragEnd({
-      source: { droppableId: "FIELDS", index: 5 },
-      destination: { droppableId: "CANVAS", index: 0 },
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.getByPlaceholderText("Numeric value")
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("reorders questions when dragging within canvas", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
-
-    const draft = {
-      name: "Reorder Form",
-      desc: "",
-      visible: true,
-      questions: [
-        { id: "q1", type: "short", label: "First Q" },
-        { id: "q2", type: "short", label: "Second Q" },
-      ],
-    };
-    window.localStorage.setItem("fb_create", JSON.stringify(draft));
-    mockLocation = { state: { tab: "layout" } };
-
-    await renderCreateForm();
-
-    expect(typeof lastOnDragEnd).toBe("function");
-
-    // initial order
-    const initialInputs = screen.getAllByPlaceholderText("Untitled Question");
-    expect(initialInputs[0]).toHaveValue("First Q");
-    expect(initialInputs[1]).toHaveValue("Second Q");
-
-    // drag q1 (index 0) after q2 (index 1)
-    lastOnDragEnd({
-      source: { droppableId: "CANVAS", index: 0 },
-      destination: { droppableId: "CANVAS", index: 1 },
-    });
-
-    await waitFor(() => {
-      const inputsAfter = screen.getAllByPlaceholderText("Untitled Question");
-      expect(inputsAfter[0]).toHaveValue("Second Q");
-      expect(inputsAfter[1]).toHaveValue("First Q");
-    });
-  });
-
-  it("supports description and required toggles on a question", async () => {
+  it("supports dragging new fields and reordering within canvas", async () => {
+    mockLocationState = { tab: "layout" };
     AuthService.isAuthenticated.mockReturnValue(true);
 
-    const draft = {
-      name: "Toggles Form",
-      desc: "",
-      visible: true,
-      questions: [
-        {
-          id: "q1",
-          type: "short",
-          label: "Short Q",
-          showDescription: false,
-          required: false,
-        },
-      ],
-    };
-    window.localStorage.setItem("fb_create", JSON.stringify(draft));
-    mockLocation = { state: { tab: "layout" } };
+    render(<CreateForm />);
 
-    await renderCreateForm();
-
-    // enable description
-    const descToggle = screen.getByLabelText("Description");
-    fireEvent.click(descToggle);
-
-    const descInput = screen.getByPlaceholderText("Description");
-    fireEvent.change(descInput, { target: { value: "Help text" } });
-    expect(descInput).toHaveValue("Help text");
-
-    // toggle required
-    const reqToggle = screen.getByLabelText("Required");
-    fireEvent.click(reqToggle);
-
-    // publish and assert isRequired is true in payload
-    FormService.create.mockResolvedValue();
-    const publishBtn = screen.getByRole("button", { name: /Publish Form/i });
-    fireEvent.click(publishBtn);
-
-    expect(FormService.create).toHaveBeenCalledTimes(1);
-    const [payload] = FormService.create.mock.calls[0];
-    expect(payload.layout[0].fields[0].isRequired).toBe(true);
-  });
-
-  it("saveDraft (unauthenticated) writes local Draft and navigates home", async () => {
-    AuthService.isAuthenticated.mockReturnValue(false);
-
-    await renderCreateForm();
-
-    const nameInput = screen.getByPlaceholderText("Enter the form name");
-    fireEvent.change(nameInput, {
-      target: { value: "Local Draft Form" },
+    // Add two fields via onDragEnd:
+    // index 0 = short text, index 1 = long text
+    await act(async () => {
+      latestOnDragEnd({
+        source: { droppableId: "FIELDS", index: 0 },
+        destination: { droppableId: "CANVAS", index: 0 },
+      });
     });
 
-    const saveBtn = screen.getAllByRole("button", {
-      name: /Save as draft/i,
-    })[0];
-    fireEvent.click(saveBtn);
+    await act(async () => {
+      latestOnDragEnd({
+        source: { droppableId: "FIELDS", index: 1 },
+        destination: { droppableId: "CANVAS", index: 1 },
+      });
+    });
 
-    const forms = JSON.parse(
-      window.localStorage.getItem("fb_forms") || "[]"
-    );
-    expect(forms).toHaveLength(1);
-    expect(forms[0].title).toBe("Local Draft Form");
-    expect(forms[0].status).toBe("Draft");
-    expect(forms[0]._from).toBe("local");
+    // Two question title inputs
+    let titleInputs = await screen.findAllByPlaceholderText("Untitled Question");
+    expect(titleInputs.length).toBe(2);
 
+    // Give them distinct labels
+    fireEvent.change(titleInputs[0], {
+      target: { value: "First Question" },
+    });
+    fireEvent.change(titleInputs[1], {
+      target: { value: "Second Question" },
+    });
+
+    // Reorder: move second to the top
+    await act(async () => {
+      latestOnDragEnd({
+        source: { droppableId: "CANVAS", index: 1 },
+        destination: { droppableId: "CANVAS", index: 0 },
+      });
+    });
+
+    titleInputs = await screen.findAllByPlaceholderText("Untitled Question");
+    expect(titleInputs[0]).toHaveValue("Second Question");
+    expect(titleInputs[1]).toHaveValue("First Question");
+  });
+
+  it("allows dropdown option add/update/remove and toggling description/required", async () => {
+    mockLocationState = { tab: "layout" };
+    AuthService.isAuthenticated.mockReturnValue(true);
+
+    render(<CreateForm />);
+
+    // index 3 in FIELD_TYPES is "dropdown"
+    await act(async () => {
+      latestOnDragEnd({
+        source: { droppableId: "FIELDS", index: 3 },
+        destination: { droppableId: "CANVAS", index: 0 },
+      });
+    });
+
+    // One question title
+    const titleInput = await screen.findByPlaceholderText("Untitled Question");
+    fireEvent.change(titleInput, { target: { value: "Dropdown Q" } });
+    expect(titleInput).toHaveValue("Dropdown Q");
+
+    // Default option "Option 1"
+    const optionInput = screen.getByDisplayValue("Option 1");
+    fireEvent.change(optionInput, {
+      target: { value: "Updated Opt" },
+    });
+    expect(optionInput).toHaveValue("Updated Opt");
+
+    // Add second option
+    fireEvent.click(screen.getByText("+ Add Option"));
+    await flushPromises();
+
+    // Should now have at least two option inputs
+    const optionInputs = screen
+      .getAllByRole("textbox")
+      .filter((el) => el.classList.contains("q-preview"));
+    expect(optionInputs.length).toBeGreaterThanOrEqual(2);
+
+    // Remove the second option via its ✕ button
+    const removeButtons = screen.getAllByTitle("Remove option");
+    expect(removeButtons.length).toBeGreaterThanOrEqual(2);
+    fireEvent.click(removeButtons[1]);
+
+    // Still at least one option remains
+    const remainingOptions = screen
+      .getAllByRole("textbox")
+      .filter((el) => el.classList.contains("q-preview"));
+    expect(remainingOptions.length).toBe(1);
+
+    // Toggle description & required
+    const descToggle = screen.getByLabelText("Description");
+    const reqToggle = screen.getByLabelText("Required");
+
+    // Description starts off hidden
+    expect(
+      screen.queryByPlaceholderText("Description")
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(descToggle);
+    expect(
+      screen.getByPlaceholderText("Description")
+    ).toBeInTheDocument();
+
+    expect(reqToggle).not.toBeChecked();
+    fireEvent.click(reqToggle);
+    expect(reqToggle).toBeChecked();
+  });
+
+  it("saveDraft when authed creates new draft via API for new forms", async () => {
+    AuthService.isAuthenticated.mockReturnValue(true);
+    FormService.create.mockResolvedValue({});
+
+    render(<CreateForm />);
+
+    const nameInput = screen.getByPlaceholderText("Enter the form name");
+    fireEvent.change(nameInput, { target: { value: "Draft Form" } });
+
+    fireEvent.click(screen.getByText("Save as draft"));
+
+    await waitFor(() => {
+      expect(FormService.create).toHaveBeenCalledTimes(1);
+    });
+
+    const payload = FormService.create.mock.calls[0][0];
+    expect(payload.status).toBe("Draft");
+    expect(payload.title).toBe("Draft Form");
     expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true });
   });
 
-  it("saveDraft updates existing form via API when authenticated and editingFormKey set", async () => {
+  it("saveDraft when editing calls FormService.update", async () => {
+    mockLocationState = { formKey: "edit-key" };
     AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.update.mockResolvedValue();
 
-    mockLocation = { state: { tab: "layout", formKey: "FORM-123" } };
-
-    const draft = {
-      name: "Edit Me",
-      desc: "Editing",
-      visible: true,
-      questions: [{ id: "q1", type: "short", label: "Q" }],
-    };
-    window.localStorage.setItem("fb_create", JSON.stringify(draft));
-
-    await renderCreateForm();
-
-    const saveBtn = screen.getAllByRole("button", {
-      name: /Save as draft/i,
-    })[0];
-    fireEvent.click(saveBtn);
-
-    expect(FormService.update).toHaveBeenCalledTimes(1);
-    const [keyArg, payload] = FormService.update.mock.calls[0];
-    expect(keyArg).toBe("FORM-123");
-    expect(payload.status).toBe("Draft");
-    expect(payload.title).toBe("Edit Me");
-  });
-
-  it("publishForm creates new form via API and mapField covers all field types", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.create.mockResolvedValue();
-
-    const draft = {
-      name: "All Types",
-      desc: "desc",
-      visible: true,
-      questions: [
-        { id: "s1", type: "short", label: "Short", required: true },
-        { id: "l1", type: "long", label: "Long", required: false },
-        { id: "d1", type: "date", label: "Date", dateFormat: "MM-DD-YYYY" },
-        {
-          id: "dd1",
-          type: "dropdown",
-          label: "Drop",
-          options: ["One", "Two"],
-          multi: true,
-        },
-        { id: "f1", type: "file", label: "File" },
-        { id: "n1", type: "number", label: "Number" },
-      ],
-    };
-    window.localStorage.setItem("fb_create", JSON.stringify(draft));
-    mockLocation = { state: { tab: "layout" } };
-
-    await renderCreateForm();
-
-    const publishBtn = screen.getByRole("button", {
-      name: /Publish Form/i,
+    FormService.get.mockResolvedValue({
+      title: "Existing",
+      description: "",
+      layout: [{ title: "Section 1", fields: [] }],
     });
-    fireEvent.click(publishBtn);
+    FormService.update.mockResolvedValue({});
 
-    expect(FormService.create).toHaveBeenCalledTimes(1);
-    const [payload] = FormService.create.mock.calls[0];
+    render(<CreateForm />);
 
-    expect(payload.status).toBe("Published");
-    expect(payload.title).toBe("All Types");
-    const fields = payload.layout[0].fields;
-    expect(fields).toHaveLength(6);
+    await waitFor(() =>
+      expect(FormService.get).toHaveBeenCalledWith("edit-key")
+    );
 
-    expect(fields[0]).toMatchObject({
-      fieldId: "s1",
-      label: "Short",
-      type: "text",
-      isRequired: true,
-    });
-    expect(fields[1]).toMatchObject({
-      fieldId: "l1",
-      label: "Long",
-      type: "textarea",
-    });
-    expect(fields[2]).toMatchObject({
-      fieldId: "d1",
-      label: "Date",
-      type: "date",
-      dateFormat: "MM-DD-YYYY",
-    });
-    expect(fields[3]).toMatchObject({
-      fieldId: "dd1",
-      label: "Drop",
-      type: "select",
-      options: ["One", "Two"],
-      multi: true,
-    });
-    expect(fields[4]).toMatchObject({
-      fieldId: "f1",
-      label: "File",
-      type: "file",
-    });
-    expect(fields[5]).toMatchObject({
-      fieldId: "n1",
-      label: "Number",
-      type: "number",
-    });
-  });
-
-  it("publishForm falls back to local Published when API fails", async () => {
-    AuthService.isAuthenticated.mockReturnValue(true);
-    FormService.create.mockRejectedValue(new Error("publish failed"));
-
-    const draft = {
-      name: "Local Publish",
-      desc: "",
-      visible: true,
-      questions: [],
-    };
-    window.localStorage.setItem("fb_create", JSON.stringify(draft));
-    mockLocation = { state: { tab: "layout" } };
-
-    await renderCreateForm();
-
-    const publishBtn = screen.getByRole("button", {
-      name: /Publish Form/i,
-    });
-    fireEvent.click(publishBtn);
+    fireEvent.click(screen.getByText("Save as draft"));
 
     await waitFor(() => {
-      const forms = JSON.parse(
-        window.localStorage.getItem("fb_forms") || "[]"
-      );
-      expect(forms.length).toBeGreaterThan(0);
-      expect(forms[0].title).toBe("Local Publish");
-      expect(forms[0].status).toBe("Published");
+      expect(FormService.update).toHaveBeenCalledTimes(1);
     });
+
+    const [key, payload] = FormService.update.mock.calls[0];
+    expect(key).toBe("edit-key");
+    expect(payload.status).toBe("Draft");
+  });
+
+  it("saveDraft falls back to local drafts when API fails", async () => {
+    AuthService.isAuthenticated.mockReturnValue(true);
+    FormService.create.mockRejectedValue(new Error("Network"));
+
+    render(<CreateForm />);
+
+    const nameInput = screen.getByPlaceholderText("Enter the form name");
+    fireEvent.change(nameInput, { target: { value: "Local Draft" } });
+
+    fireEvent.click(screen.getByText("Save as draft"));
+
+    await flushPromises();
+
+    expect(FormService.create).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Draft save via API failed, using local:",
+      "Network"
+    );
+
+    const stored = JSON.parse(localStorage.getItem("fb_forms"));
+    expect(Array.isArray(stored)).toBe(true);
+    expect(stored[0].title).toBe("Local Draft");
+    expect(stored[0].status).toBe("Draft");
+  });
+
+  it("saveDraft without auth uses local drafts and never hits API", async () => {
+    AuthService.isAuthenticated.mockReturnValue(false);
+
+    render(<CreateForm />);
+
+    const nameInput = screen.getByPlaceholderText("Enter the form name");
+    fireEvent.change(nameInput, { target: { value: "No Auth Draft" } });
+
+    fireEvent.click(screen.getByText("Save as draft"));
+
+    await flushPromises();
+
+    expect(FormService.create).not.toHaveBeenCalled();
+    expect(FormService.update).not.toHaveBeenCalled();
+
+    const stored = JSON.parse(localStorage.getItem("fb_forms"));
+    expect(stored[0].title).toBe("No Auth Draft");
+    expect(stored[0].status).toBe("Draft");
+  });
+
+  it("publishForm when authed creates new published form via API", async () => {
+    mockLocationState = { tab: "layout" };
+    AuthService.isAuthenticated.mockReturnValue(true);
+
+    FormService.create.mockResolvedValue({});
+
+    // fb_create present (should be removed on success)
+    localStorage.setItem("fb_create", JSON.stringify({}));
+
+    render(<CreateForm />);
+
+    const nameInput = screen.getByPlaceholderText("Enter the form name");
+    fireEvent.change(nameInput, { target: { value: "Published Form" } });
+
+    fireEvent.click(screen.getByText("Publish Form"));
+
+    await waitFor(() => {
+      expect(FormService.create).toHaveBeenCalledTimes(1);
+    });
+
+    const payload = FormService.create.mock.calls[0][0];
+    expect(payload.status).toBe("Published");
+
+    expect(localStorage.getItem("fb_create")).toBeNull();
+    expect(mockNavigate).toHaveBeenCalledWith("/", { replace: true });
+  });
+
+  it("publishForm falls back to local when API fails", async () => {
+    mockLocationState = { tab: "layout" };
+    AuthService.isAuthenticated.mockReturnValue(true);
+
+    FormService.create.mockRejectedValue(new Error("PublishFail"));
+    localStorage.setItem("fb_create", JSON.stringify({}));
+
+    render(<CreateForm />);
+
+    const nameInput = screen.getByPlaceholderText("Enter the form name");
+    fireEvent.change(nameInput, { target: { value: "Local Pub" } });
+
+    fireEvent.click(screen.getByText("Publish Form"));
+
+    await flushPromises();
+
+    expect(FormService.create).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Publish via API failed, using local:",
+      "PublishFail"
+    );
+
+    const stored = JSON.parse(localStorage.getItem("fb_forms"));
+    expect(stored[0].title).toBe("Local Pub");
+    expect(stored[0].status).toBe("Published");
+    // fb_create also removed after local publish
+    expect(localStorage.getItem("fb_create")).toBeNull();
+  });
+
+  it("publishForm without auth uses local storage and removes fb_create", async () => {
+    mockLocationState = { tab: "layout" };
+    AuthService.isAuthenticated.mockReturnValue(false);
+
+    localStorage.setItem("fb_create", JSON.stringify({ draft: true }));
+
+    render(<CreateForm />);
+
+    const nameInput = screen.getByPlaceholderText("Enter the form name");
+    fireEvent.change(nameInput, { target: { value: "No Auth Pub" } });
+
+    fireEvent.click(screen.getByText("Publish Form"));
+
+    await flushPromises();
+
+    expect(FormService.create).not.toHaveBeenCalled();
+    expect(FormService.update).not.toHaveBeenCalled();
+
+    const stored = JSON.parse(localStorage.getItem("fb_forms"));
+    expect(stored[0].title).toBe("No Auth Pub");
+    expect(stored[0].status).toBe("Published");
+
+    expect(localStorage.getItem("fb_create")).toBeNull();
+  });
+
+  it("disables Next button without form name and enables when name is set", () => {
+    AuthService.isAuthenticated.mockReturnValue(true);
+
+    render(<CreateForm />);
+
+    const nextButton = screen.getByText("Next");
+    expect(nextButton).toBeDisabled();
+
+    const nameInput = screen.getByPlaceholderText("Enter the form name");
+    fireEvent.change(nameInput, { target: { value: "Config Name" } });
+
+    expect(nextButton).not.toBeDisabled();
   });
 });

@@ -1,5 +1,5 @@
 /* ------- Page shell ------- */
-.cfp{max-width:1360px;margin:0 auto;padding:24px 40px 96px;color:#111827;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+.cfp{max-width:1360px;margin:0 auto;padding:24px 20px 96px;color:#111827;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
 .cfp-bc{display:flex;gap:6px;color:#6b7280;font-size:13px;margin-bottom:8px}
 .cfp-bc .cur{color:#374151}.cfp-bc .sep{color:#9ca3af}
 .cfp-tabs{display:flex;gap:24px;border-bottom:1px solid #E5E7EB;margin-bottom:16px}
@@ -21,9 +21,16 @@
 .fb-canvas.is-over{box-shadow:inset 0 0 0 3px rgba(93,56,223,.08)}
 
 /* ------- Form Header card ------- */
-.fh-card{position:relative;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px 16px 12px 16px;margin-bottom:16px}
+.fh-card{position: relative;
+    background: #fff;
+    border: 1px solid #E5E7EB;
+    /* border-radius: 12px; */
+    padding: 16px 16px 12px 16px;
+    margin-bottom: 16px;
+    border-bottom-right-radius: 8px;
+    border-bottom-left-radius: 8px;}
 .fh-card::before{content:"";position:absolute;left:0;right:0;top:-8px;height:8px;background:#5D38DF;border-top-left-radius:12px;border-top-right-radius:12px}
-.fh-tab{position:absolute;top:-24px;left:16px;height:24px;display:inline-flex;align-items:center;padding:0 10px;background:#5D38DF;color:#fff;border-radius:6px;font-size:12px;font-weight:700}
+.fh-tab{position:absolute;top:-24px;left:0px;height:24px;display:inline-flex;align-items:center;padding:0 10px;background:#5D38DF;color:#fff;border-radius:6px;font-size:12px;font-weight:700}
 .fh-input{width:100%;border:1px solid #E5E7EB;border-radius:8px;padding:10px 12px;font-size:14px;margin-bottom:8px;outline:none}
 .fh-input:focus{border-color:#5D38DF;box-shadow:0 0 0 3px rgba(93,56,223,.12)}
 
@@ -125,11 +132,11 @@
 .fb-canvas.is-over{box-shadow:inset 0 0 0 3px rgba(93,56,223,.12)}
 
 /* Header card */
-.fh-card{position:relative;border-radius:12px;border:1px solid #E5E7EB;background:#fff;padding:16px 16px 12px;margin-bottom:16px}
+/* .fh-card{position:relative;border-radius:12px;border:1px solid #E5E7EB;background:#fff;padding:16px 16px 12px;margin-bottom:16px}
 .fh-card::before{content:"";position:absolute;left:0;right:0;top:-8px;height:8px;background:#5D38DF;border-top-left-radius:12px;border-top-right-radius:12px}
 .fh-tab{position:absolute;top:-24px;left:16px;height:24px;display:inline-flex;align-items:center;padding:0 10px;background:#5D38DF;color:#fff;border-radius:6px;font-size:12px;font-weight:700}
 .fh-input{width:100%;box-sizing:border-box;border:1px solid #D8D8D8;border-radius:8px;background:#fff;padding:10px 12px;font-size:14px;color:#111827;outline:none;margin-bottom:12px}
-.fh-input:focus{border-color:#5D38DF;box-shadow:0 0 0 3px rgba(93,56,223,.12)}
+.fh-input:focus{border-color:#5D38DF;box-shadow:0 0 0 3px rgba(93,56,223,.12)} */
 
 /* Empty drop prompt + section title */
 .drop-empty{margin:16px 0 12px 0;padding:24px;border-radius:12px;background:#F2EFFC;border:1px dashed #5D38DF;color:#6B7280;text-align:center}

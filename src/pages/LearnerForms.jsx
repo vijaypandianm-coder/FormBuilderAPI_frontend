@@ -2,6 +2,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FormService } from "../api/forms";
+import ResponseService from "../api/responses";
+import ConfirmDialog from "../components/ConfirmDialog";
 import "./learner.css";
 import search from "../assets/Search.png";
 
@@ -30,11 +32,21 @@ export default function LearnerForms() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  // pagination state
+  // pagination state (purely client-side)
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [total, setTotal] = useState(0);
 
+  // map of formKey -> { submittedAt, ts }
+  const [submittedByForm, setSubmittedByForm] = useState({});
+
+  // "Already submitted" dialog state
+  const [alreadyState, setAlreadyState] = useState({
+    open: false,
+    form: null,
+    lastDate: "",
+  });
+
+  /* ---------- load available forms (self-service) ---------- */
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -42,11 +54,11 @@ export default function LearnerForms() {
         setLoading(true);
         setErr("");
 
-        // hit backend with page + search
+        // Fetch a large page once; we handle paging on the client
         const res = await FormService.list({
           status: "Published",
-          page,
-          pageSize,
+          page: 1,
+          pageSize: 1000,
           q,
         });
 
@@ -69,8 +81,6 @@ export default function LearnerForms() {
 
         if (alive) {
           setItems(normalized);
-          const totalFromApi = res?.total ?? res?.Total ?? normalized.length;
-          setTotal(totalFromApi);
         }
       } catch (e) {
         if (alive) setErr(e?.message || "Failed to load");
@@ -81,14 +91,62 @@ export default function LearnerForms() {
     return () => {
       alive = false;
     };
-  }, [page, pageSize, q]);
+  }, [q]); // only refetch when search text changes
 
   // reset to first page on search/pageSize change
   useEffect(() => {
     setPage(1);
   }, [q, pageSize]);
 
-  const filtered = useMemo(() => {
+  /* ---------- load ALL my submissions once ---------- */
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await ResponseService.listMy();
+        const headers = Array.isArray(res)
+          ? res
+          : res?.items || res?.Items || res?.data || [];
+
+        const map = {};
+
+        headers.forEach((h) => {
+          const formKey =
+            h.formKey ?? h.FormKey ?? h.form_id ?? h.FormId ?? null;
+          if (!formKey) return;
+
+          const submittedAt =
+            h.submittedAt ??
+            h.SubmittedAt ??
+            h.submitted_on ??
+            h.SubmittedOn ??
+            null;
+          if (!submittedAt) return;
+
+          const ts = new Date(submittedAt).getTime();
+          const existing = map[formKey];
+          if (!existing || ts > existing.ts) {
+            map[formKey] = { submittedAt, ts };
+          }
+        });
+
+        if (alive) {
+          setSubmittedByForm(map);
+        }
+      } catch (e) {
+        console.warn("Failed to load my submissions for pre-check:", e);
+        if (alive) setSubmittedByForm({});
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /* ---------- filtering & paging (client-side) ---------- */
+
+  // First apply search filter
+  const searched = useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (!needle) return items;
     return items.filter(
@@ -99,12 +157,54 @@ export default function LearnerForms() {
     );
   }, [items, q]);
 
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  // Then compute page count from the filtered list
+  const pageCount = Math.max(1, Math.ceil(searched.length / pageSize));
   const pageSafe = Math.min(page, pageCount);
 
-  const openForm = (key) => {
+  // Finally slice exactly pageSize items for the current page
+  const filtered = useMemo(() => {
+    const start = (pageSafe - 1) * pageSize;
+    const end = start + pageSize;
+    return searched.slice(start, end);
+  }, [searched, pageSafe, pageSize]);
+
+  const goToForm = (key) => {
     if (!key) return;
     nav(`/forms/${encodeURIComponent(key)}`);
+  };
+
+  /* ---------- Start Submission click ---------- */
+
+  const handleStartSubmission = (form) => {
+    if (!form?.formKey) return;
+
+    const info = submittedByForm[form.formKey];
+
+    // no previous submissions -> go straight to form
+    if (!info) {
+      goToForm(form.formKey);
+      return;
+    }
+
+    const lastDate = info.submittedAt
+      ? new Date(info.submittedAt).toLocaleDateString()
+      : "";
+
+    setAlreadyState({
+      open: true,
+      form,
+      lastDate,
+    });
+  };
+
+  const handleAlreadyCancel = () => {
+    setAlreadyState({ open: false, form: null, lastDate: "" });
+  };
+
+  const handleAlreadyConfirm = () => {
+    const f = alreadyState.form;
+    setAlreadyState({ open: false, form: null, lastDate: "" });
+    if (f?.formKey) goToForm(f.formKey);
   };
 
   return (
@@ -189,7 +289,7 @@ export default function LearnerForms() {
               <div className="lr-card-cta">
                 <button
                   className="lr-primary"
-                  onClick={() => openForm(f.formKey)}
+                  onClick={() => handleStartSubmission(f)}
                   disabled={!f.formKey}
                 >
                   Start Submission
@@ -238,6 +338,25 @@ export default function LearnerForms() {
           </div>
         </div>
       )}
+
+      {/* ===== Already Submitted dialog ===== */}
+      <ConfirmDialog
+        open={alreadyState.open}
+        title="Already Submitted"
+        body={
+          <>
+            <p>
+              You last submitted this form on{" "}
+              <strong>{alreadyState.lastDate || "DD/MM/YYYY"}</strong>.
+            </p>
+            <p>Do you want to submit this form again?</p>
+          </>
+        }
+        cancelLabel="Cancel"
+        confirmLabel="Yes, Continue"
+        onCancel={handleAlreadyCancel}
+        onConfirm={handleAlreadyConfirm}
+      />
     </div>
   );
 }

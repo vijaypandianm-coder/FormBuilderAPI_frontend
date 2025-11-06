@@ -215,13 +215,15 @@ describe("FormSubmissionPage", () => {
       await screen.findByText(/'Choice Required' is required\./i)
     ).toBeInTheDocument();
 
-    // choose one chip (use exact name /^A$/i to avoid matching "Clear Form")
-    const chipA = screen.getAllByRole("button", { name: /^A$/i })[0];
-    fireEvent.click(chipA);
+    // ✅ select an option from the dropdown instead of clicking a chip
+    const choiceSelect = screen.getByRole("combobox");
+    fireEvent.change(choiceSelect, { target: { value: "1" } }); // A
 
     fireEvent.click(submitBtn);
     expect(
-      await screen.findByText(/'Date Required' must be in dd\/MM\/yyyy format\./i)
+      await screen.findByText(
+        /'Date Required' must be in dd\/MM\/yyyy format\./i
+      )
     ).toBeInTheDocument();
 
     // enter invalid date, still error
@@ -231,7 +233,9 @@ describe("FormSubmissionPage", () => {
 
     fireEvent.click(submitBtn);
     expect(
-      await screen.findByText(/'Date Required' must be in dd\/MM\/yyyy format\./i)
+      await screen.findByText(
+        /'Date Required' must be in dd\/MM\/yyyy format\./i
+      )
     ).toBeInTheDocument();
 
     // enter valid date
@@ -330,13 +334,13 @@ describe("FormSubmissionPage", () => {
     const dateInput = dateWrapper.querySelector("input");
     fireEvent.change(dateInput, { target: { value: "2024-03-05" } });
 
-    // single choice -> pick first chip (exact /^A$/)
-    const singleChip = screen.getAllByRole("button", { name: /^A$/i })[0];
-    fireEvent.click(singleChip);
+    // single choice dropdown: select "A"
+    const singleSelect = screen.getByRole("combobox");
+    fireEvent.change(singleSelect, { target: { value: "1" } }); // "A"
 
-    // multi choice -> pick both chips
-    const multiChipX = screen.getAllByRole("button", { name: /^X$/i })[0];
-    const multiChipY = screen.getAllByRole("button", { name: /^Y$/i })[0];
+    // multi choice -> pick both chips X and Y
+    const multiChipX = screen.getByRole("button", { name: "X" });
+    const multiChipY = screen.getByRole("button", { name: "Y" });
     fireEvent.click(multiChipX);
     fireEvent.click(multiChipY);
 
@@ -354,17 +358,26 @@ describe("FormSubmissionPage", () => {
     expect(body.Answers).toEqual(
       expect.arrayContaining([
         { fieldId: "txt", answerValue: "hello" },
-        { fieldId: "dt", answerValue: "05/03/2024" }, // dd/MM/yyyy
-        { fieldId: "single", optionIds: ["1"] }, // first option
+        { fieldId: "dt", answerValue: "05/03/2024" },
+        { fieldId: "single", optionIds: ["1"] },
         { fieldId: "multi", optionIds: ["1", "2"] },
       ])
     );
+
+    // success dialog should appear
+    const successTitle = await screen.findByText(/Submitted Successfully!/i);
+    expect(successTitle).toBeInTheDocument();
+
+    // click "Go back to Skill Assessments" to trigger navigate
+    const backBtn = screen.getByRole("button", {
+      name: /Go back to Skill Assessments/i,
+    });
+    fireEvent.click(backBtn);
 
     expect(mockNavigate).toHaveBeenCalledWith("/learn/my-submissions", {
       replace: true,
     });
   });
-
   it("maps file upload to base64 payload and shows filename", async () => {
     FormService.get.mockResolvedValue({
       id: 1,

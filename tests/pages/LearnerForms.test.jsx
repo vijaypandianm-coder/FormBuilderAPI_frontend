@@ -1,23 +1,52 @@
+// tests/pages/LearnerForms.test.jsx
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 
-// Mock static asset used by the component
+// ---- Mocks ----
+
+// static asset
 vi.mock("../../src/assets/Search.png", () => ({ default: "search.png" }), {
   virtual: true,
 });
 
-// Mock the API module that LearnerForms imports
+// FormService.list
 vi.mock("../../src/api/forms.js", () => {
-  const list = vi.fn();
   return {
     FormService: {
-      list,
+      list: vi.fn(),
     },
   };
 });
 
+// ResponseService.listMy (default export)
+vi.mock("../../src/api/responses.js", () => {
+  return {
+    __esModule: true,
+    default: {
+      listMy: vi.fn(),
+    },
+  };
+});
+
+// ConfirmDialog – simplified, but keeps behaviour for open/confirm/cancel
+vi.mock("../../src/components/ConfirmDialog.jsx", () => ({
+  __esModule: true,
+  default: ({ open, title, body, cancelLabel, confirmLabel, onCancel, onConfirm }) => {
+    if (!open) return null;
+    return (
+      <div data-testid="confirm-dialog">
+        <h2>{title}</h2>
+        <div>{body}</div>
+        <button onClick={onCancel}>{cancelLabel}</button>
+        <button onClick={onConfirm}>{confirmLabel}</button>
+      </div>
+    );
+  },
+}));
+
 import { FormService } from "../../src/api/forms.js";
+import ResponseService from "../../src/api/responses.js";
 import LearnerForms from "../../src/pages/LearnerForms.jsx";
 
 function renderAt(path = "/learn") {
@@ -37,9 +66,9 @@ function renderAt(path = "/learn") {
 
 describe("<LearnerForms />", () => {
   beforeEach(() => {
-    FormService.list.mockReset();
+    vi.clearAllMocks();
 
-    // Default response: two published, one draft (filtered out)
+    // default: 2 published + 1 draft (filtered out)
     FormService.list.mockResolvedValue({
       items: [
         {
@@ -59,34 +88,37 @@ describe("<LearnerForms />", () => {
         {
           formKey: 3,
           title: "Drafty",
-          status: "Draft", // should be filtered out
+          status: "Draft",
         },
       ],
       total: 2,
     });
+
+    // default: no previous submissions
+    ResponseService.listMy.listMy?.mockResolvedValue?.([]) ??
+      (ResponseService.listMy = vi.fn().mockResolvedValue([]));
   });
 
-  it("loads, sorts Published forms by publishedAt desc, filters by search, and opens form", async () => {
+  it("loads, sorts Published forms, filters by search, and opens form when no previous submission", async () => {
     renderAt("/learn");
 
-    // First API call on mount
+    // initial API call on mount – note pageSize: 1000 (client-side paging)
     await waitFor(() => {
       expect(FormService.list).toHaveBeenCalledWith({
         status: "Published",
         page: 1,
-        pageSize: 10,
+        pageSize: 1000,
         q: "",
       });
     });
 
-    // After load, both cards should be present, sorted: Alpha (May) then Zeta (Mar)
+    // Alpha (May) then Zeta (Mar) – sorted by publishedAt desc
     const alphaCard = await screen.findByLabelText("Alpha");
     const zetaCard = screen.getByLabelText("Zeta");
-
     expect(alphaCard).toBeInTheDocument();
     expect(zetaCard).toBeInTheDocument();
 
-    // Filter by search (also triggers another API call with q="zeta")
+    // Filter by search (refetch with q = "zeta")
     fireEvent.change(screen.getByPlaceholderText(/search/i), {
       target: { value: "zeta" },
     });
@@ -95,18 +127,18 @@ describe("<LearnerForms />", () => {
       expect(FormService.list).toHaveBeenLastCalledWith({
         status: "Published",
         page: 1,
-        pageSize: 10,
+        pageSize: 1000,
         q: "zeta",
       });
     });
 
-    // Wait for filtered list to show only Zeta
+    // after search, only Zeta should remain
     await waitFor(() => {
       expect(screen.queryByLabelText("Alpha")).not.toBeInTheDocument();
       expect(screen.getByLabelText("Zeta")).toBeInTheDocument();
     });
 
-    // Clicking "Start Submission" should navigate and show OPENED
+    // start submission: no previous submissions -> direct navigation to /forms/2
     fireEvent.click(
       screen.getByRole("button", { name: /start submission/i })
     );
@@ -115,7 +147,7 @@ describe("<LearnerForms />", () => {
   });
 
   it("shows empty state when no results after search", async () => {
-    // For this test, make the *first* call return no items
+    // first call: no items
     FormService.list.mockResolvedValueOnce({
       items: [],
       total: 0,
@@ -123,20 +155,19 @@ describe("<LearnerForms />", () => {
 
     renderAt("/learn");
 
-    // Initial load completes with empty list
     await waitFor(() => {
       expect(FormService.list).toHaveBeenCalledWith({
         status: "Published",
         page: 1,
-        pageSize: 10,
+        pageSize: 1000,
         q: "",
       });
     });
 
-    // Empty state should be visible
+    // empty state visible
     expect(await screen.findByText(/no forms found/i)).toBeInTheDocument();
 
-    // Type a search (still empty) — component will call API again with q
+    // type a search – refetch with q
     fireEvent.change(screen.getByPlaceholderText(/search/i), {
       target: { value: "nope" },
     });
@@ -145,88 +176,133 @@ describe("<LearnerForms />", () => {
       expect(FormService.list).toHaveBeenLastCalledWith({
         status: "Published",
         page: 1,
-        pageSize: 10,
+        pageSize: 1000,
         q: "nope",
       });
     });
 
-    // And we still see the empty state
+    // still empty
     expect(screen.getByText(/no forms found/i)).toBeInTheDocument();
   });
 
-  it("renders error state when API fails", async () => {
-    // Make the first call reject
+  it("renders error state when API fails and handles ResponseService failure", async () => {
+    // Form list fails
     FormService.list.mockRejectedValueOnce(new Error("Backend down"));
+    // My submissions also fails -> warning branch
+    ResponseService.listMy.mockRejectedValueOnce(
+      new Error("Submissions API down")
+    );
 
     renderAt("/learn");
 
     const errorEl = await screen.findByText(/backend down/i);
     expect(errorEl).toBeInTheDocument();
 
-    // No cards or empty state when err is set
+    // no cards or empty state when err is set
     expect(screen.queryByLabelText("Alpha")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Zeta")).not.toBeInTheDocument();
     expect(screen.queryByText(/no forms found/i)).not.toBeInTheDocument();
   });
 
-  it("handles item without status as published and exercises pagination footer", async () => {
-    // Override the default mock *completely* for this test
-    FormService.list.mockReset();
-    FormService.list.mockResolvedValue({
-      items: [
-        {
-          FormKey: 10, // tests norm() fallback and "no status" treated as published
-          Title: "Mystery",
-          Description: "no status",
-          PublishedAt: "2024-01-01",
-        },
-      ],
-      total: 30, // 3 pages at 10 per page
+  it("treats item without status as published, and exercises pagination footer (page & pageSize changes)", async () => {
+    // 30 items -> pageCount: ceil(30/10) = 3
+    const manyItems = Array.from({ length: 30 }).map((_, i) => ({
+      FormKey: `F-${i + 1}`,          // tests norm() fallback for FormKey/Title
+      Title: `Mystery ${i + 1}`,
+      Description: "no status",
+      PublishedAt: "2024-01-01",
+      // no status -> treated as published
+    }));
+
+    FormService.list.mockResolvedValueOnce({
+      items: manyItems,
+      total: 30,
     });
 
     renderAt("/learn");
 
-    const card = await screen.findByLabelText("Mystery");
-    expect(card).toBeInTheDocument();
+    // one of the cards rendered
+    const firstCard = await screen.findByLabelText("Mystery 1");
+    expect(firstCard).toBeInTheDocument();
 
-    // Pagination footer present with 1 of 3
-    // (whitespace in DOM may be split, so use regex for safety)
+    // pagination footer: 1 of 3
     expect(screen.getByText(/1\s*of\s*3/)).toBeInTheDocument();
 
     const nextBtn = screen.getByRole("button", { name: "›" });
     const prevBtn = screen.getByRole("button", { name: "‹" });
 
-    // On first page: prev disabled, next enabled
+    // first page: prev disabled, next enabled
     expect(prevBtn).toBeDisabled();
     expect(nextBtn).not.toBeDisabled();
 
-    // Clicking "next" moves to page 2 and triggers another API call
+    // go to page 2 (client-side only – no new API call expected)
     fireEvent.click(nextBtn);
-
-    await waitFor(() => {
-      expect(FormService.list).toHaveBeenLastCalledWith({
-        status: "Published",
-        page: 2,
-        pageSize: 10,
-        q: "",
-      });
-    });
-
-    // Now we should be on page 2 of 3
     expect(screen.getByText(/2\s*of\s*3/)).toBeInTheDocument();
 
-    // Change page size to 25; this should reset to page 1 and fetch again
+    // now prev enabled
+    expect(prevBtn).not.toBeDisabled();
+
+    // change pageSize to 25 -> page reset to 1; pageCount = ceil(30/25) = 2
     fireEvent.change(screen.getByDisplayValue("10"), {
       target: { value: "25" },
     });
 
-    await waitFor(() => {
-      expect(FormService.list).toHaveBeenLastCalledWith({
-        status: "Published",
-        page: 1,
-        pageSize: 25,
-        q: "",
-      });
+    // footer updated to "1 of 2"
+    expect(screen.getByText(/1\s*of\s*2/)).toBeInTheDocument();
+  });
+
+  it("shows 'already submitted' dialog when previous submission exists and navigates on confirm", async () => {
+    FormService.list.mockResolvedValueOnce({
+      items: [
+        {
+          formKey: "REPEAT",
+          title: "Repeatable",
+          description: "desc",
+          status: "Published",
+          publishedAt: "2024-07-01",
+        },
+      ],
+      total: 1,
     });
+
+    // one previous submission for this form
+    ResponseService.listMy.mockResolvedValueOnce([
+      {
+        formKey: "REPEAT",
+        submittedAt: "2024-08-01T00:00:00Z",
+      },
+    ]);
+
+    renderAt("/learn");
+
+    const card = await screen.findByLabelText("Repeatable");
+    expect(card).toBeInTheDocument();
+
+    // click Start Submission -> should open "Already Submitted" dialog (no navigation yet)
+    fireEvent.click(
+      screen.getByRole("button", { name: /start submission/i })
+    );
+
+    const dialog = await screen.findByTestId("confirm-dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getByText(/already submitted/i)).toBeInTheDocument();
+    // last submitted date shown in body
+    expect(screen.getByText(/submit this form again/i)).toBeInTheDocument();
+
+    // cancel once to exercise handleAlreadyCancel
+    fireEvent.click(screen.getByText("Cancel"));
+    await waitFor(() => {
+      expect(screen.queryByTestId("confirm-dialog")).not.toBeInTheDocument();
+    });
+
+    // open again
+    fireEvent.click(
+      screen.getByRole("button", { name: /start submission/i })
+    );
+    await screen.findByTestId("confirm-dialog");
+
+    // confirm -> navigate to /forms/REPEAT
+    fireEvent.click(screen.getByText("Yes, Continue"));
+    expect(await screen.findByText("OPENED")).toBeInTheDocument();
   });
 });

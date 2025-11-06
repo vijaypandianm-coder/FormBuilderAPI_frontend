@@ -29,12 +29,12 @@ html,body,#root{ height:100%; }
   display:flex;
   align-items:center;
   justify-content:center;
-  background:#fff;
+  background:#F2EFFC;
   border-bottom:1px solid #e5e7eb;
 }
 .pf-top-title{
   margin:0;
-  font-size:20px;
+  font-size:18px;
   font-weight:600;
   color:#262626;
 }
@@ -44,6 +44,7 @@ html,body,#root{ height:100%; }
   max-width:960px;
   margin:24px auto 40px;
   padding:0 16px;
+  min-height: calc(100vh - 241px);
 }
 
 /* Form card */
@@ -56,8 +57,8 @@ html,body,#root{ height:100%; }
 }
 .pf-cap{ height:8px; background:var(--pf-purple); }
 .pf-card-inner{ padding:24px 32px 28px; }
-.pf-form-name{ margin:0 0 6px; font-size:16px; font-weight:700; color:#262626; }
-.pf-form-desc{ margin:0 0 20px; font-size:12px; color:var(--pf-muted); }
+.pf-form-name{ margin: 0px 0px 20px; font-size:20px; font-weight:700; color:#262626; }
+.pf-form-desc{ margin:0 0 20px; font-size:16px; color:var(--pf-muted); }
 
 /* Questions */
 .pf-qs{ display:flex; flex-direction:column; gap:24px; }
@@ -69,7 +70,7 @@ html,body,#root{ height:100%; }
   margin-top:2px;
 }
 .pf-qbody{ flex:1; }
-.pf-qtitle{ font-size:13px; font-weight:600; color:#2c2c2c; margin-bottom:6px; }
+.pf-qtitle{ font-size:16px; font-weight:600; color:#2c2c2c; margin-bottom:6px; }
 .pf-qtitle .req{ color:#a10000; margin-left:4px; }
 .pf-qdesc{ font-size:11px; color:var(--pf-muted); margin-bottom:8px; }
 
@@ -79,7 +80,7 @@ html,body,#root{ height:100%; }
   border:1px solid var(--pf-border-strong);
   border-radius:10px;
   padding:10px 12px;
-  font-size:13px;
+  font-size:14px;
   background:#fff;
   color:#111827;
 }

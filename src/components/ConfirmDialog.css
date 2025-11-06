@@ -1,0 +1,110 @@
+/* src/components/ConfirmDialog.css */
+
+.dlg-root {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Lato", system-ui, -apple-system, Segoe UI, Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji",
+    "Segoe UI Emoji", "Noto Color Emoji";
+}
+
+.dlg-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.dlg {
+  position: relative;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.25);
+  width: 420px;
+  max-width: calc(100% - 32px);
+  padding: 24px 24px 20px;
+}
+
+.dlg-title {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.dlg-body {
+  font-size: 14px;
+  color: #4b5563;
+  margin-bottom: 24px;
+}
+
+.dlg-body p {
+  margin: 0 0 8px;
+}
+
+.dlg-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.dlg-actions .btn {
+  min-width: 104px;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.dlg-actions .btn.ghost {
+  background: #ffffff;
+  color: #5d38df;
+  border-color: #e5e7eb;
+}
+
+.dlg-actions .btn.primary {
+  background: #5d38df;
+  color: #ffffff;
+  border-color: #5d38df;
+}
+
+/* Clone dialog form-name bits */
+
+.clone-body-label {
+  display: block;
+  margin-top: 12px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.clone-body-label .req {
+  color: #ef4444;
+}
+
+.clone-body-input {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  padding: 8px 10px;
+  font-size: 14px;
+  outline: none;
+}
+
+.clone-body-input:focus {
+  border-color: #5d38df;
+  box-shadow: 0 0 0 3px rgba(93, 56, 223, 0.12);
+}
+
+.clone-body-count {
+  text-align: right;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #9ca3af;
+}

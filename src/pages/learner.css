@@ -212,7 +212,7 @@
 /* pills and tags (colors from figma) */
 .pill{
   display:inline-flex; align-items:center; gap:8px;
-  padding:6px 10px; border-radius:999px; border:1px solid #E5E7EB; font-size:12px;
+  padding:6px 10px; border:1px solid #E5E7EB; font-size:12px;
   background:#FFF; color:#6B7280;
 }
 .pill--pink{ background:#F8F0FF; border-color:#E4D6FF; color:#7C3AED; }
@@ -347,7 +347,7 @@ textarea.fs-input{ min-height:88px; resize:vertical; }
   height:40px;
   padding:0 18px;
   border-radius:9px;
-  background:#5B3FFF;
+  background:#5D38DF;
   color:#fff;
   font-weight:700;
   cursor:pointer;
@@ -373,34 +373,76 @@ textarea.fs-input{ min-height:88px; resize:vertical; }
 @media (max-width: 980px){
   .fs-card, .fs-info-banner{ width:100%; }
 }
-/* Chip buttons used for both single & multi choice */
-.fs-chip-wrap{
-  display:flex; flex-wrap:wrap; gap:8px;
+
+/* === Figma-style chips for single/multi choice === */
+.fs-chip-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #ffffff;
+  min-height: 44px;
+  padding: 4px 40px 4px 10px; /* space on right for chevron */
 }
-.fs-chip{
-  border:1px solid #DADCF9;
-  background:#FFFFFF;
-  color:#374151;
-  border-radius:10px;
-  padding:8px 12px;
-  font-weight:600;
-  cursor:pointer;
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
+
+.fs-chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.fs-chip .fs-box{
-  width:16px; height:16px; border-radius:4px;
-  border:1px solid #CBD2E3; background:#fff; display:inline-block;
+
+/* chevron on the right like a dropdown */
+.fs-chip-caret {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: #6b7280;
 }
-.fs-chip.on{
-  border-color:#6C4DFF;
-  background:#EEF2FF;
-  color:#5D38DF;
+
+/* individual chip */
+.fs-chip {
+  border: 1px solid transparent;
+  background: #f9fafb;
+  color: #374151;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-.fs-chip.on .fs-box{
-  background:#6C4DFF; border-color:#6C4DFF; box-shadow:inset 0 0 0 2px #fff;
+
+.fs-chip:hover {
+  background: #eef2ff;
+  border-color: #e5e7eb;
 }
+
+/* selected state */
+.fs-chip.on {
+  background: #eef2ff;
+  border-color: #4f46e5;
+  color: #111827;
+}
+
+.fs-chip-label {
+  white-space: nowrap;
+}
+
+/* small “x” on selected chips */
+.fs-chip-close {
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  color: #374151;
+}
+
 /* Figma-style pager layout – used on Learner, My Submissions, Admin dashboard */
 .vf-pager {
   display: flex;
@@ -441,4 +483,77 @@ textarea.fs-input{ min-height:88px; resize:vertical; }
   height: 32px;
   border-radius: 999px;
   padding: 0 8px;
+}
+
+/* ===== Submit Success Dialog (Learner) ===== */
+
+.fs-success-root {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fs-success-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35); /* soft dark overlay */
+  backdrop-filter: blur(2px);
+}
+
+.fs-success-card {
+  position: relative;
+  z-index: 1;
+  width: 430px;
+  max-width: 92vw;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 24px 55px rgba(0, 0, 0, 0.12);
+  padding: 40px 48px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.fs-success-icon {
+  width: 260px;
+  max-width: 100%;
+  height: auto;
+}
+
+.fs-success-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.fs-success-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: #4b5563;
+}
+
+.fs-success-btn {
+  margin-top: 8px;
+  min-width: 227px;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 8px;
+  border: none;
+  background: #5b3fff;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(91, 63, 255, 0.35);
+}
+
+.fs-success-btn:hover {
+  background: #4a33cc;
 }
