@@ -138,7 +138,7 @@ export default function CreateForm() {
 
   const [questions, setQuestions] = useState([]);
 
-  // ---------- INITIAL LOAD (fixed) ----------
+  // ---------- INITIAL LOAD (with fb_create restore) ----------
   useEffect(() => {
     // If editing: fetch from API and populate
     if (editingFormKey) {
@@ -189,16 +189,61 @@ export default function CreateForm() {
       return; // 👉 don't load from localStorage when editing
     }
 
-    // NEW form: always start FRESH – clear any old fb_create draft
-    localStorage.removeItem("fb_create");
-    setCfgName("");
-    setCfgDesc("");
-    setCfgVisible(true);
-    setQuestions([]);
+    // NEW form: try to restore any existing fb_create draft; if none, start fresh
+    const draftRaw = localStorage.getItem("fb_create");
+    if (draftRaw) {
+      try {
+        const draft = JSON.parse(draftRaw);
+        setCfgName(draft.name || "");
+        setCfgDesc(draft.desc || "");
+        setCfgVisible(
+          draft.visible !== undefined ? !!draft.visible : true
+        );
+        setQuestions(
+          Array.isArray(draft.questions) ? draft.questions : []
+        );
+      } catch {
+        // invalid JSON → clear and start clean
+        localStorage.removeItem("fb_create");
+        setCfgName("");
+        setCfgDesc("");
+        setCfgVisible(true);
+        setQuestions([]);
+      }
+    } else {
+      // no draft present → fresh form
+      setCfgName("");
+      setCfgDesc("");
+      setCfgVisible(true);
+      setQuestions([]);
+    }
 
     if (location.state?.tab) setActiveTab(location.state.tab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingFormKey]);
+
+  // 🔹 Clear fb_create only when user leaves CreateForm page (not when previewing)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const path = window.location.pathname;
+      // Don't delete if going to preview
+      if (!path.includes("/preview")) {
+        localStorage.removeItem("fb_create");
+      }
+    };
+
+    // Clear on page unload (refresh or navigation away)
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // Clear when navigating away via router (except preview)
+    return () => {
+      const nextPath = window.location.pathname;
+      if (!nextPath.includes("/preview")) {
+        localStorage.removeItem("fb_create");
+      }
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
 
   // Persist builder state into fb_create while on the page
   useEffect(() => {

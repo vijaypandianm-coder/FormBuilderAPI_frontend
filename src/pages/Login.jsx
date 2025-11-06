@@ -76,23 +76,7 @@ export default function Login() {
               />
             </label>
 
-            <div className="auth-row">
-              <label className="remember">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                />
-                Remember me
-              </label>
-              <button
-                className="link-ghost"
-                type="button"
-                onClick={() => alert("Forgot password flow coming soon")}
-              >
-                Forgot password?
-              </button>
-            </div>
+            
 
             <button className="auth-primary" type="submit" disabled={loading}>
               {loading ? "Signing In…" : "Sign In"}

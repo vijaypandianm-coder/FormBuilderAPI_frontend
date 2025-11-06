@@ -121,7 +121,16 @@ export default function AdminFormCard({
             Draft
           </span>
         )}
-        <button className="btn primary" onClick={() => onView(form)}>
+
+        {/* Disable View Responses for drafts */}
+        <button
+          className={`btn primary ${!isPublished ? "disabled" : ""}`}
+          onClick={() => {
+            if (isPublished) onView(form);
+          }}
+          disabled={!isPublished}
+          title={!isPublished ? "Responses are only available for published forms" : "View Responses"}
+        >
           View Responses
         </button>
       </div>

@@ -111,46 +111,46 @@ afterEach(() => {
 // ------- Tests -------
 
 describe("<CreateForm />", () => {
-  it("starts with a fresh form for new create and clears any old fb_create", async () => {
-  // Seed an old draft
-  localStorage.setItem(
-    "fb_create",
-    JSON.stringify({
-      name: "Old Name",
-      desc: "Old desc",
-      visible: false,
-      questions: [{ id: "q1" }],
-    })
-  );
+  it("restores existing fb_create draft for new create instead of clearing it", async () => {
+    // Seed an old draft
+    localStorage.setItem(
+      "fb_create",
+      JSON.stringify({
+        name: "Old Name",
+        desc: "Old desc",
+        visible: false,
+        questions: [{ id: "q1" }],
+      })
+    );
 
-  AuthService.isAuthenticated.mockReturnValue(true);
+    AuthService.isAuthenticated.mockReturnValue(true);
 
-  render(<CreateForm />);
+    render(<CreateForm />);
 
-  // fb_create should be reset to a fresh blank draft on mount
-  const draft = JSON.parse(localStorage.getItem("fb_create"));
-  expect(draft).toEqual({
-    name: "",
-    desc: "",
-    visible: true,
-    questions: [],
+    // On config tab by default
+    expect(screen.getByText("Form Details")).toBeInTheDocument();
+
+    const nameInput = screen.getByPlaceholderText("Enter the form name");
+    const descInput = screen.getByPlaceholderText(
+      "Enter the form description (optional)"
+    );
+
+    // Values should be restored from fb_create
+    expect(nameInput).toHaveValue("Old Name");
+    expect(descInput).toHaveValue("Old desc");
+
+    // Visibility restored (false)
+    const visibilityCheckbox = screen.getByRole("checkbox", { hidden: true });
+    expect(visibilityCheckbox).not.toBeChecked();
+
+    // fb_create should still reflect the same draft (or an updated version with same core values)
+    const draft = JSON.parse(localStorage.getItem("fb_create"));
+    expect(draft.name).toBe("Old Name");
+    expect(draft.desc).toBe("Old desc");
+    expect(draft.visible).toBe(false);
+    expect(Array.isArray(draft.questions)).toBe(true);
+    expect(draft.questions[0].id).toBe("q1");
   });
-
-  // On config tab by default
-  expect(screen.getByText("Form Details")).toBeInTheDocument();
-
-  const nameInput = screen.getByPlaceholderText("Enter the form name");
-  const descInput = screen.getByPlaceholderText(
-    "Enter the form description (optional)"
-  );
-
-  expect(nameInput).toHaveValue("");
-  expect(descInput).toHaveValue("");
-
-  // Visibility defaults to true; checkbox is visually hidden so include hidden elements
-  const visibilityCheckbox = screen.getByRole("checkbox", { hidden: true });
-  expect(visibilityCheckbox).toBeChecked();
-});
 
   it("loads existing form for editing from API and maps fields correctly", async () => {
     mockLocationState = { formKey: "edit-key", tab: "layout" };
